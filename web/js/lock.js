@@ -216,76 +216,82 @@ function askPasscode(root, { title, subtitle, confirm = false, allowRecovery = f
   return new Promise((resolve) => {
     let stage = 'first';
     let firstCode = '';
+    let value = '';
 
     root.innerHTML = '';
-    const dots = el('div', { class: 'lock-dots' });
-    const input = el('input', {
-      class: 'lock-input',
-      type: 'tel',
-      inputmode: 'numeric',
-      maxlength: '6',
-      autocomplete: 'off'
-    });
 
+    const dots = el('div', { class: 'lock-dots' });
     const titleNode = el('div', { class: 'lock-title' }, title);
     const subNode = el('div', { class: 'lock-note' }, subtitle);
 
-    const wrap = el('div', { class: 'lock' },
+    const keypad = el('div', { class: 'keypad' });
+    for (const key of ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫']) {
+      if (key === '') {
+        keypad.append(el('div', { class: 'key-placeholder' }));
+        continue;
+      }
+      keypad.append(el('button', { class: 'key', type: 'button', onclick: () => press(key) }, key));
+    }
+
+    root.append(el('div', { class: 'lock' },
       el('div', { class: 'lock-logo' }, '朝夕'),
       titleNode,
       subNode,
       dots,
-      input,
+      keypad,
       allowRecovery
         ? el('button', { class: 'lock-link', onclick: () => resolve('__recovery__') }, '忘了密码？用恢复码')
         : null
-    );
-    root.append(wrap);
+    ));
 
-    const renderDots = () => {
+    function renderDots() {
       dots.innerHTML = '';
-      const filled = Math.min(6, input.value.length);
       for (let i = 0; i < 6; i++) {
-        dots.append(el('span', { class: i < filled ? 'on' : '' }));
+        dots.append(el('span', { class: i < value.length ? 'on' : '' }));
       }
-    };
+    }
     renderDots();
 
-    input.addEventListener('input', () => {
-      input.value = input.value.replace(/\D/g, '').slice(0, 6);
+    function press(key) {
+      if (key === '⌫') {
+        value = value.slice(0, -1);
+      } else if (value.length < 6) {
+        value += key;
+      }
       renderDots();
+      if (value.length === 6) setTimeout(submit, 90);
+    }
 
-      if (input.value.length !== 6) return;
+    function submit() {
+      if (value.length !== 6) return;
 
       if (!confirm) {
-        resolve(input.value);
+        resolve(value);
         return;
       }
 
       if (stage === 'first') {
-        firstCode = input.value;
+        firstCode = value;
+        value = '';
         stage = 'second';
-        input.value = '';
         renderDots();
         titleNode.textContent = '再输一次';
         subNode.textContent = '确认一下刚刚的密码';
         return;
       }
 
-      if (input.value === firstCode) {
-        resolve(input.value);
+      if (value === firstCode) {
+        resolve(value);
       } else {
         toast('两次不一样，重来');
         stage = 'first';
         firstCode = '';
-        input.value = '';
+        value = '';
         renderDots();
         titleNode.textContent = title;
         subNode.textContent = subtitle;
       }
-    });
-
-    setTimeout(() => input.focus(), 50);
+    }
   });
 }
 

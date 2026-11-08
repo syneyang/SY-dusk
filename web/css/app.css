@@ -715,3 +715,30 @@ body.reading #view { padding-bottom: 40px; }
 
 body.locked .tabbar { display: none; }
 body.locked #view { padding-bottom: 20px; }
+
+/* ---------- 数字键盘 ---------- */
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 68px);
+  gap: 14px;
+  margin-top: 18px;
+  justify-content: center;
+}
+.key {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  border: 1px solid var(--hairline);
+  background: var(--card);
+  color: var(--ink);
+  font-size: 24px;
+  font-family: inherit;
+  font-weight: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+.key:active { background: var(--dawn-soft); border-color: var(--dawn); transform: scale(0.96); }
+.key-placeholder { width: 68px; height: 68px; }
