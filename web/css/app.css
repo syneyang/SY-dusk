@@ -630,3 +630,85 @@ body.reading #view { padding-bottom: 40px; }
   font-family: inherit;
   color: var(--dawn);
 }
+
+/* ---------- 锁屏 ---------- */
+
+.lock {
+  min-height: 78vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  text-align: center;
+  padding: 20px;
+}
+.lock-logo {
+  font-family: "Songti SC", "STSong", Georgia, serif;
+  font-size: 30px;
+  color: var(--ink);
+  letter-spacing: 4px;
+}
+.lock-title { font-size: 17px; color: var(--ink); font-weight: 600; }
+.lock-note { font-size: 13px; color: var(--ink-soft); line-height: 1.7; max-width: 300px; }
+
+.lock-dots { display: flex; gap: 14px; margin: 12px 0 4px; }
+.lock-dots span {
+  width: 12px; height: 12px; border-radius: 50%;
+  border: 1px solid var(--ink-soft);
+}
+.lock-dots span.on { background: var(--dawn); border-color: var(--dawn); }
+
+.lock-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.lock-btn {
+  margin-top: 8px;
+  border: none;
+  background: var(--dawn);
+  color: #fff;
+  border-radius: 12px;
+  padding: 12px 26px;
+  font-size: 15px;
+  font-family: inherit;
+}
+.lock-link {
+  border: none;
+  background: none;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-family: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.lock-text {
+  margin-top: 8px;
+  width: 100%;
+  max-width: 300px;
+  text-align: center;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 16px;
+  letter-spacing: 1px;
+  background: var(--card);
+  color: var(--ink);
+  outline: none;
+  font-family: inherit;
+}
+.recovery-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 17px;
+  letter-spacing: 2px;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin: 6px 0 4px;
+  user-select: all;
+  -webkit-user-select: all;
+}

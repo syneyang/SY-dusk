@@ -3,6 +3,7 @@
 import * as db from './db.js';
 import { normalize, plainText, imageIds, charCount, placeName } from './model.js';
 import { el, toast, fullCN, weekdayCN, todayISO, confirmAction, APP_VERSION } from './util.js';
+import { lockNow } from './lock.js';
 
 export async function renderSettings(root) {
   const journeyStart = await db.getMeta('journeyStart', '2027-01-01');
@@ -101,6 +102,17 @@ export async function renderSettings(root) {
     el('div', { class: 'hint', style: 'margin-top:0' }, storageText),
     el('div', { class: 'hint' },
       '数据只存在这台设备的浏览器里。清空浏览器的网站数据会一起清掉，换手机之前一定先导出。')
+  ));
+
+  // 隐私
+  root.append(el('div', { class: 'card' },
+    el('h3', {}, '隐私'),
+    el('div', { class: 'hint', style: 'margin-top:0' }, '日记和照片都是用你的密码加密后存在本机的，没有密码谁也读不出来。'),
+    el('button', {
+      class: 'ghost',
+      style: 'width:100%;padding:12px;margin-top:10px',
+      onclick: () => lockNow()
+    }, '立即锁定')
   ));
 
   // 危险

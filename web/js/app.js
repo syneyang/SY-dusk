@@ -5,6 +5,7 @@ import { renderList } from './list.js';
 import { renderReview } from './review.js';
 import { renderSettings } from './settings.js';
 import { renderRead } from './read.js';
+import { requireUnlock, startAutoLock } from './lock.js';
 import { todayISO } from './util.js';
 
 const view = document.getElementById('view');
@@ -59,13 +60,22 @@ async function route() {
   }
 }
 
-window.addEventListener('hashchange', route);
+window.addEventListener('hashchange', () => {
+  if (!document.body.classList.contains('locked')) route();
+});
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') flushSave();
 });
 window.addEventListener('pagehide', flushSave);
 
-route();
+async function boot() {
+  const unlocked = await requireUnlock(view);
+  if (!unlocked) return;
+  startAutoLock();
+  route();
+}
+
+boot();
 
 // 离线缓存
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
