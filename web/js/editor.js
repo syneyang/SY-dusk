@@ -271,7 +271,18 @@ export async function renderEditor(root, dateISO) {
       )
     ),
     head,
-    el('div', { class: 'row' }, el('span', { class: 'label' }, '天气'), weatherInput),
+    el('div', { class: 'row' },
+      el('span', { class: 'label' }, '天气'),
+      el('div', { style: 'flex:1;display:flex;align-items:center;gap:8px' },
+        weatherInput,
+        el('button', {
+          class: 'ghost',
+          style: 'padding:4px 9px;font-size:12px;white-space:nowrap',
+          title: '用当前位置查天气',
+          onclick: () => requestWeather(true)
+        }, '📍')
+      )
+    ),
     weatherHint,
     el('div', { class: 'row', style: 'align-items:flex-start' },
       el('span', { class: 'label' }, '地点'),
@@ -313,41 +324,70 @@ export async function renderEditor(root, dateISO) {
 
   current = { date, entry, saveNow: doSave, cleanup: () => objectURLs.forEach(URL.revokeObjectURL) };
 
-  // ---------- 天气自动填（只在今天、且没填过） ----------
-  if (isToday && !entry.weather.trim()) autoFillWeather();
+  // ---------- 天气：自动填 / 手动点 📍 ----------
+  let weatherBusy = false;
+  if (isToday && !entry.weather.trim()) requestWeather(false);
 
-  async function autoFillWeather() {
-    if (!navigator.geolocation) return;
+  async function requestWeather(force) {
+    if (weatherBusy) return;
+    if (!force && entry.weather.trim()) return;
 
-    const cached = await db.getMeta(`weather:${date}`, null);
-    if (cached && Date.now() - cached.ts < 30 * 60 * 1000) {
-      applyWeather(cached);
+    if (!navigator.geolocation) {
+      weatherHint.textContent = '这个浏览器不支持定位，手动填一下天气吧';
+      weatherHint.style.display = 'block';
       return;
     }
 
+    if (!force) {
+      const cached = await db.getMeta(`weather:${date}`, null);
+      if (cached && Date.now() - cached.ts < 30 * 60 * 1000) {
+        applyWeather(cached);
+        return;
+      }
+    }
+
+    weatherBusy = true;
+    weatherHint.style.display = 'block';
+    weatherHint.textContent = '正在定位…';
+
     navigator.geolocation.getCurrentPosition(
       async (position) => {
+        weatherBusy = false;
         try {
           const { latitude, longitude } = position.coords;
           const response = await fetch(`/api/weather?lat=${latitude}&lng=${longitude}`);
           const data = await response.json();
-          if (!data.ok || !data.weather) return;
+          if (!data.ok || !data.weather) {
+            weatherHint.textContent = '天气接口没返回结果，手动填一下';
+            return;
+          }
           const payload = { display: data.weather.display, district: data.district || '', ts: Date.now() };
           await db.setMeta(`weather:${date}`, payload);
-          if (!entry.weather.trim()) applyWeather(payload);
+          applyWeather(payload);
         } catch {
-          // 静默失败，手填就行
+          weatherHint.textContent = '拿不到天气，手动填一下';
         }
       },
-      () => {},
-      { timeout: 8000, maximumAge: 10 * 60 * 1000 }
+      (error) => {
+        weatherBusy = false;
+        weatherHint.style.display = 'block';
+        if (error.code === 1) {
+          weatherHint.textContent = '定位被拒绝了。去 iPhone 设置 → 隐私与安全性 → 定位服务 → 找到「Safari 网站」或「朝夕」，改成「使用 App 期间」。';
+        } else if (error.code === 2) {
+          weatherHint.textContent = '定位不可用（可能没开定位服务或没信号），手动填一下天气吧';
+        } else {
+          weatherHint.textContent = '定位超时了，再点一次 📍 试试';
+        }
+      },
+      { timeout: 10000, maximumAge: 5 * 60 * 1000, enableHighAccuracy: false }
     );
   }
 
   function applyWeather(payload) {
-    if (entry.weather.trim() || weatherInput.value.trim()) return;
-    weatherInput.value = payload.display;
-    entry.weather = payload.display;
+    if (payload.display) {
+      weatherInput.value = payload.display;
+      entry.weather = payload.display;
+    }
     if (payload.district && !entry.regions.some((r) => placeName(r) === payload.district)) {
       entry.regions.push(payload.district);
       renderRegions();
