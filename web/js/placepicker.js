@@ -45,7 +45,7 @@ export function openPlacePicker({ existing = [], title = '选择地点' } = {}) 
     doneBtn.addEventListener('click', close);
     search.addEventListener('input', () => {
       if (search.value.trim()) runSearch(search.value);
-      else render(nearbyPlaces, '附近的地点');
+      else render(nearbyPlaces, '');
     });
 
     const runSearch = debounce(async (query) => {
@@ -94,7 +94,7 @@ export function openPlacePicker({ existing = [], title = '选择地点' } = {}) 
             }
             nearbyPlaces = data.places || [];
             status.textContent = `附近 ${nearbyPlaces.length} 个地点`;
-            if (!search.value.trim()) render(nearbyPlaces, '附近的地点');
+            if (!search.value.trim()) render(nearbyPlaces, '');
           } catch {
             status.textContent = '附近地点拿不到，用搜索框找吧';
           }
