@@ -9,6 +9,7 @@ export function openPlacePicker({ existing = [], title = '选择地点' } = {}) 
 
     let cityShort = '';
     let cityFull = '';
+    let district = '';
     let coords = null;
     let lastQuery = '';
 
@@ -60,6 +61,7 @@ export function openPlacePicker({ existing = [], title = '选择地点' } = {}) 
             if (data.ok) {
               cityFull = data.city || '';
               cityShort = data.cityShort || '';
+              district = data.district || '';
             }
           } catch {
             // 拿不到城市也能用附近
@@ -77,7 +79,7 @@ export function openPlacePicker({ existing = [], title = '选择地点' } = {}) 
 
     async function loadNearby() {
       if (!coords) return;
-      status.textContent = `正在找附近的地点${cityShort ? '（' + cityShort + '）' : ''}…`;
+      status.textContent = `正在找附近的地点${placeLabel()}…`;
       try {
         const response = await fetch(`/api/nearby?lat=${coords.lat}&lng=${coords.lng}&radius=2000`);
         const data = await response.json();
@@ -86,11 +88,15 @@ export function openPlacePicker({ existing = [], title = '选择地点' } = {}) 
           return;
         }
         const places = data.places || [];
-        status.textContent = `附近 ${places.length} 个地点${cityShort ? ' · ' + cityShort : ''}`;
+        status.textContent = `附近 ${places.length} 个地点 · ${placeLabel()}`;
         if (!lastQuery) render(places);
       } catch {
         status.textContent = '附近地点拿不到，用搜索框找吧';
       }
+    }
+
+    function placeLabel() {
+      return [cityShort, district].filter(Boolean).join(' ');
     }
 
     // ---------- 搜索（先限城市，找不到再全国） ----------
