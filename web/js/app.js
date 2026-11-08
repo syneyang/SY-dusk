@@ -27,6 +27,7 @@ async function route() {
 
   setTab(path);
   view.className = 'view';
+  document.body.classList.toggle('reading', path === 'read');
   window.scrollTo(0, 0);
 
   try {

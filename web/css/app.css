@@ -528,3 +528,35 @@ label.photo-btn {
   text-decoration: none;
   white-space: nowrap;
 }
+
+/* ---------- 读模式：沉浸 ---------- */
+
+body.reading .tabbar { display: none; }
+body.reading #view { padding-bottom: 40px; }
+
+.read-bar {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  left: 0; right: 0;
+  padding: 0 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 10;
+}
+.read-back, .read-edit-top {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  min-width: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  color: #fff;
+  font-size: 14px;
+  text-decoration: none;
+}
+.read-back { font-size: 20px; padding: 0 10px; }

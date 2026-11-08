@@ -40,6 +40,12 @@ export async function renderRead(root, dateISO) {
     ...entry.regions.map(placeName)
   ].filter(Boolean);
 
+  // ---------- 浮动返回 ----------
+  root.append(el('div', { class: 'read-bar' },
+    el('a', { class: 'read-back', href: '#/list', 'aria-label': '返回' }, '‹'),
+    el('a', { class: 'read-edit-top', href: `#/entry/${dateISO}` }, '编辑')
+  ));
+
   // ---------- 头部 ----------
   if (hero) {
     root.append(el('div', { class: 'read-hero' },
