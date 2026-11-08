@@ -3,7 +3,7 @@
 import * as db from './db.js';
 import { normalize, plainText, imageIds, charCount, placeName } from './model.js';
 import { el, toast, fullCN, weekdayCN, todayISO, confirmAction, APP_VERSION } from './util.js';
-import { lockNow } from './lock.js';
+import { lockNow, faceEnabled, enableFaceFlow, disableFace, faceSupported } from './lock.js';
 import { getToken, enableSync, syncNow, syncStatus } from './sync.js';
 
 export async function renderSettings(root) {
@@ -169,7 +169,8 @@ export async function renderSettings(root) {
       class: 'ghost',
       style: 'width:100%;padding:12px;margin-top:10px',
       onclick: () => lockNow()
-    }, '立即锁定')
+    }, '立即锁定'),
+    await faceToggleRow()
   ));
 
   // 危险
@@ -188,6 +189,27 @@ export async function renderSettings(root) {
 
   root.append(el('div', { class: 'hint', style: 'text-align:center;margin-top:22px' },
     `朝夕 v${APP_VERSION} · 只给自己用的日记本`));
+}
+
+async function faceToggleRow() {
+  if (!(await faceSupported())) {
+    return el('div', { class: 'hint' }, '这台设备不支持 Face ID，只能用密码。');
+  }
+  const on = await faceEnabled();
+  return el('button', {
+    class: 'ghost',
+    style: 'width:100%;padding:12px;margin-top:8px',
+    onclick: async (event) => {
+      if (on) {
+        await disableFace();
+        toast('已关闭 Face ID');
+        location.reload();
+      } else {
+        await enableFaceFlow(document.getElementById('view'));
+        location.reload();
+      }
+    }
+  }, on ? '关闭 Face ID 快捷解锁' : '开启 Face ID 快捷解锁');
 }
 
 function daysAgo(timestamp) {

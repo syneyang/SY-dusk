@@ -54,6 +54,10 @@ export async function unwrapMasterKey(wrapped, kek) {
   return new Uint8Array(plain);
 }
 
+export async function importAesKey(raw) {
+  return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+}
+
 export async function importMasterKey(masterRaw) {
   return crypto.subtle.importKey('raw', masterRaw, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
 }

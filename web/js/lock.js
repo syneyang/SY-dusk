@@ -8,6 +8,55 @@ const AUTO_LOCK_MS = 5 * 60 * 1000;
 let lockTimer = null;
 
 /** App 启动时调用。返回 true 表示已解锁，可以继续渲染。 */
+export async function faceSupported() {
+  try {
+    return !!(window.PublicKeyCredential
+      && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable());
+  } catch {
+    return false;
+  }
+}
+
+export async function faceEnabled() {
+  return !!(await db.getMeta('face', null));
+}
+
+export async function disableFace() {
+  await db.deleteMeta('face');
+}
+
+/** 注册一个平台凭据，并把主密钥用随机设备密钥包一份存本地。 */
+export async function enableFace(masterRaw) {
+  if (!(await faceSupported())) throw new Error('这台设备不支持 Face ID');
+
+  const credential = await navigator.credentials.create({
+    publicKey: {
+      challenge: crypto.randomBytes(32),
+      rp: { id: location.hostname, name: '朝夕' },
+      user: { id: crypto.randomBytes(16), name: 'dusk', displayName: '朝夕' },
+      pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+      authenticatorSelection: {
+        authenticatorAttachment: 'platform',
+        userVerification: 'required',
+        residentKey: 'discouraged'
+      },
+      timeout: 60000,
+      attestation: 'none'
+    }
+  });
+  if (!credential) throw new Error('没有完成注册');
+
+  const deviceKeyRaw = crypto.randomBytes(32);
+  const deviceKey = await crypto.importAesKey(deviceKeyRaw);
+  const wrapped = await crypto.wrapMasterKey(masterRaw, deviceKey);
+
+  await db.setMeta('face', {
+    credentialId: crypto.toB64(new Uint8Array(credential.rawId)),
+    deviceKey: crypto.toB64(deviceKeyRaw),
+    wrapped
+  });
+}
+
 export async function requireUnlock(root) {
   document.body.classList.add('locked');
   const vault = await db.getMeta('vault', null);
@@ -79,6 +128,7 @@ async function setupFlow(root) {
 
   await showRecovery(root, recoveryCode);
   await migrate(root);
+  if (await faceSupported()) await offerFace(root, masterRaw);
   document.body.classList.remove('locked');
   return true;
 }
@@ -142,6 +192,17 @@ async function migrate(root) {
 // ---------- 解锁 ----------
 
 async function unlockFlow(root, vault) {
+  const faceMeta = await db.getMeta('face', null);
+  if (faceMeta && (await faceSupported())) {
+    const masterRaw = await faceGate(root, faceMeta);
+    if (masterRaw) {
+      db.setMasterKey(await crypto.importMasterKey(masterRaw));
+      await migrate(root);
+      document.body.classList.remove('locked');
+      return true;
+    }
+  }
+
   for (;;) {
     const passcode = await askPasscode(root, {
       title: '解锁',
@@ -208,6 +269,88 @@ async function recoveryFlow(root, vault) {
     toast('恢复码不对');
     return false;
   }
+}
+
+// ---------- Face ID ----------
+
+function offerFace(root, masterRaw) {
+  return new Promise((resolve) => {
+    root.innerHTML = '';
+    root.append(el('div', { class: 'lock' },
+      el('div', { class: 'lock-logo' }, '朝夕'),
+      el('div', { class: 'lock-title' }, '要不要用 Face ID 打开？'),
+      el('div', { class: 'lock-note' },
+        '开启后，打开 App 先扫脸，不用每次输密码。密码仍然是最后的保险。'),
+      el('button', {
+        class: 'lock-btn',
+        onclick: async () => {
+          try {
+            await enableFace(masterRaw);
+            toast('已开启 Face ID');
+          } catch (error) {
+            toast('没开成：' + (error.message || error));
+          }
+          resolve();
+        }
+      }, '开启 Face ID'),
+      el('button', { class: 'lock-link', onclick: () => resolve() }, '以后再说')
+    ));
+  });
+}
+
+/** 设置页里开启 Face ID：先验一次密码，拿到主密钥再注册。 */
+export async function enableFaceFlow(root) {
+  const vault = await db.getMeta('vault', null);
+  if (!vault) return false;
+  if (!(await faceSupported())) {
+    toast('这台设备不支持 Face ID');
+    return false;
+  }
+
+  const passcode = await askPasscode(root, { title: '验证一下密码', subtitle: '开启 Face ID 之前，先输一次密码' });
+  try {
+    const kek = await crypto.deriveKEK(passcode, crypto.fromB64(vault.salt), vault.iterations);
+    const masterRaw = await crypto.unwrapMasterKey(vault.wrapped, kek);
+    await enableFace(masterRaw);
+    toast('已开启 Face ID');
+    return true;
+  } catch {
+    toast('密码不对');
+    return false;
+  }
+}
+
+function faceGate(root, faceMeta) {
+  return new Promise((resolve) => {
+    root.innerHTML = '';
+    root.append(el('div', { class: 'lock' },
+      el('div', { class: 'lock-logo' }, '朝夕'),
+      el('div', { class: 'lock-title' }, '解锁'),
+      el('div', { class: 'lock-note' }, '轻点下面的按钮，用 Face ID 打开'),
+      el('button', {
+        class: 'lock-btn',
+        onclick: async () => {
+          try {
+            const assertion = await navigator.credentials.get({
+              publicKey: {
+                challenge: crypto.randomBytes(32),
+                allowCredentials: [{ id: crypto.fromB64(faceMeta.credentialId), type: 'public-key' }],
+                userVerification: 'required',
+                timeout: 60000
+              }
+            });
+            if (!assertion) { resolve(null); return; }
+            const deviceKey = await crypto.importAesKey(crypto.fromB64(faceMeta.deviceKey));
+            resolve(await crypto.unwrapMasterKey(faceMeta.wrapped, deviceKey));
+          } catch {
+            resolve(null);
+          }
+        }
+      }, '用 Face ID 解锁'),
+      el('button', { class: 'lock-link', onclick: () => resolve(null) }, '改用密码')
+    ));
+    // 用户可能想直接输密码，先不自动弹人脸
+  });
 }
 
 // ---------- 通用输入界面 ----------
