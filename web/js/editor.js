@@ -271,9 +271,12 @@ export async function renderEditor(root, dateISO) {
     }
   }
 
+  const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
   const nativeInput = el('input', { type: 'file', accept: 'image/*', multiple: true, class: 'native-file' });
-  const photoFallback = el('div', { class: 'photo-fallback', style: 'display:none' },
-    el('div', { class: 'hint', style: 'margin:0 0 6px' }, '相册没弹出来？点下面的原生选择器：'),
+  const photoFallback = el('div', { class: 'photo-fallback', style: isIOS ? 'display:block' : 'display:none' },
+    el('div', { class: 'hint', style: 'margin:0 0 6px' }, isIOS ? '添加照片：' : '相册没弹出来？点下面的原生选择器：'),
     nativeInput
   );
 
@@ -312,7 +315,7 @@ export async function renderEditor(root, dateISO) {
     editor.focus();
   }
 
-  const photoWrap = el('div', { class: 'photo-wrap' },
+  const photoWrap = el('div', { class: 'photo-wrap', style: isIOS ? 'display:none' : 'display:inline-block' },
     el('div', { class: 'ghost photo-btn' }, '＋ 照片'),
     fileInput
   );
