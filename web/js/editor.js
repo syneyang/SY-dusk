@@ -231,13 +231,32 @@ export async function renderEditor(root, dateISO) {
         await db.putImage({ id: imageId, blob, thumb, width, height, date, createdAt: Date.now() });
         const url = URL.createObjectURL(blob);
         objectURLs.push(url);
-        insertHTML(`<img src="${url}" data-img="${imageId}" alt=""><p><br></p>`);
+        insertImage(url, imageId);
+        updateEmptyState();
         scheduleSave();
       } catch (error) {
         toast('有张照片没能处理：' + (error.message || '未知错误'));
       }
     }
   });
+
+  /** 选完照片后焦点可能已经丢了，这时就把图片接在最后。 */
+  function insertImage(url, imageId) {
+    const selection = window.getSelection();
+    const hasCaret = selection && selection.rangeCount > 0 && editor.contains(selection.anchorNode);
+    if (hasCaret) {
+      insertHTML(`<img src="${url}" data-img="${imageId}" alt=""><p><br></p>`);
+      return;
+    }
+    editor.append(el('img', { src: url, dataset: { img: imageId }, alt: '' }));
+    editor.append(el('p', {}, el('br')));
+    const range = document.createRange();
+    range.selectNodeContents(editor.lastElementChild);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    editor.focus();
+  }
 
   const addPhotoBtn = el('label', { class: 'ghost photo-btn' }, '＋ 照片', fileInput);
   const counter = el('span', { class: 'hint', style: 'margin:0' }, `${charCount(entry)} 字 · ${imageCount(entry)} 张`);
