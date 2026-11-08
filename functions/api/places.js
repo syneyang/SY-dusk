@@ -19,8 +19,11 @@ export async function onRequestGet({ request, env }) {
       page: '1',
       extensions: 'base'
     });
-    if (city) params.set('city', city);
-    if (env.AMAP_CITY) params.set('city', env.AMAP_CITY);
+    const cityName = city || env.AMAP_CITY || '';
+    if (cityName) {
+      params.set('city', cityName);
+      params.set('citylimit', 'true');
+    }
 
     const response = await (await fetch(`https://restapi.amap.com/v3/place/text?${params}`)).json();
     if (response.status !== '1') throw new Error(response.info || '搜索失败');
