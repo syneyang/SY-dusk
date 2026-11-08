@@ -712,3 +712,6 @@ body.reading #view { padding-bottom: 40px; }
   user-select: all;
   -webkit-user-select: all;
 }
+
+body.locked .tabbar { display: none; }
+body.locked #view { padding-bottom: 20px; }

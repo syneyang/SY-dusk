@@ -9,6 +9,7 @@ let lockTimer = null;
 
 /** App 启动时调用。返回 true 表示已解锁，可以继续渲染。 */
 export async function requireUnlock(root) {
+  document.body.classList.add('locked');
   const vault = await db.getMeta('vault', null);
   if (!vault) return setupFlow(root);
   return unlockFlow(root, vault);
@@ -78,6 +79,7 @@ async function setupFlow(root) {
 
   await showRecovery(root, recoveryCode);
   await migrate(root);
+  document.body.classList.remove('locked');
   return true;
 }
 
@@ -158,6 +160,7 @@ async function unlockFlow(root, vault) {
       const masterRaw = await crypto.unwrapMasterKey(vault.wrapped, kek);
       db.setMasterKey(await crypto.importMasterKey(masterRaw));
       await migrate(root);
+      document.body.classList.remove('locked');
       return true;
     } catch {
       toast('密码不对');
@@ -199,6 +202,7 @@ async function recoveryFlow(root, vault) {
     });
 
     db.setMasterKey(await crypto.importMasterKey(masterRaw));
+    document.body.classList.remove('locked');
     return true;
   } catch {
     toast('恢复码不对');
