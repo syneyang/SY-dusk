@@ -120,29 +120,35 @@ function loadImageFromFile(file) {
 
 /** 压缩成两张：展示用（长边 1600）和缩略图（长边 320）。HEIC 由 Safari 自己解码。 */
 export async function compressImage(file) {
-  let source = null;
-  let revoke = null;
-
-  if ('createImageBitmap' in window) {
-    try {
-      source = await createImageBitmap(file);
-    } catch {
-      source = null;
-    }
-  }
-
-  if (!source) {
-    const loaded = await loadImageFromFile(file);
-    source = loaded.img;
-    revoke = loaded.revoke;
-  }
-
   try {
-    const full = await drawToBlob(source, MAX_EDGE, QUALITY);
-    const thumb = await drawToBlob(source, THUMB_EDGE, 0.7);
-    return { blob: full.blob, width: full.width, height: full.height, thumb: thumb.blob };
-  } finally {
-    if (source && source.close) source.close();
-    if (revoke) revoke();
+    let source = null;
+    let revoke = null;
+
+    if ('createImageBitmap' in window) {
+      try {
+        source = await createImageBitmap(file);
+      } catch {
+        source = null;
+      }
+    }
+
+    if (!source) {
+      const loaded = await loadImageFromFile(file);
+      source = loaded.img;
+      revoke = loaded.revoke;
+    }
+
+    try {
+      const full = await drawToBlob(source, MAX_EDGE, QUALITY);
+      if (!full.blob) throw new Error('canvas 编码失败');
+      const thumb = await drawToBlob(source, THUMB_EDGE, 0.7);
+      return { blob: full.blob, width: full.width, height: full.height, thumb: thumb.blob || full.blob };
+    } finally {
+      if (source && source.close) source.close();
+      if (revoke) revoke();
+    }
+  } catch {
+    // HEIC 之类浏览器解不了的格式：原样存下来，先保证能加进去
+    return { blob: file, width: 0, height: 0, thumb: null, raw: true };
   }
 }

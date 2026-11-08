@@ -23,6 +23,7 @@ export async function onRequestGet({ request, env }) {
       city: city || '',
       cityShort: (city || '').replace(/市$/, ''),
       district: comp.district || '',
+      township: typeof comp.township === 'string' ? comp.township : '',
       adcode: comp.adcode || ''
     });
   } catch (error) {

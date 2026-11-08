@@ -104,12 +104,43 @@ export async function renderEditor(root, dateISO) {
         lng: place.lng ?? null
       });
     }
-    if (place.district && !entry.regions.some((r) => placeName(r) === place.district)) {
-      entry.regions.push(place.district);
-      renderRegions();
-    }
+    if (place.district) addRegionOnce(place.district);
     renderPlaces();
+    renderRegions();
     scheduleSave();
+    refineRegion(place);
+  }
+
+  function addRegionOnce(name) {
+    const clean = (name || '').trim();
+    if (!clean) return;
+    if (!entry.regions.some((r) => placeName(r) === clean)) entry.regions.push(clean);
+  }
+
+  /** 拿到街道/乡镇，把「上城区」升级成「上城区丁兰街道」。 */
+  async function refineRegion(place) {
+    if (!place.lat || !place.lng) return;
+    try {
+      const response = await fetch(`/api/regeo?lat=${place.lat}&lng=${place.lng}`);
+      const data = await response.json();
+      if (!data.ok) return;
+      const district = data.district || place.district || '';
+      const township = data.township || '';
+      const label = township ? `${district}${township}` : district;
+      if (!label) return;
+      // 去掉只有区县、不够精确的那条
+      entry.regions = entry.regions.filter((r) => {
+        const name = placeName(r);
+        if (name === label) return true;
+        if (name === district && label !== district) return false;
+        return true;
+      });
+      addRegionOnce(label);
+      renderRegions();
+      scheduleSave();
+    } catch {
+      // 拿不到街道就保留区县
+    }
   }
 
   function renderPlaces() {
@@ -187,7 +218,7 @@ export async function renderEditor(root, dateISO) {
   });
 
   // ---------- 照片 ----------
-  const fileInput = el('input', { type: 'file', accept: 'image/*', multiple: true, hidden: true });
+  const fileInput = el('input', { type: 'file', accept: 'image/*', multiple: true, class: 'file-input' });
   fileInput.addEventListener('change', async (event) => {
     const files = [...event.target.files];
     event.target.value = '';
@@ -195,6 +226,7 @@ export async function renderEditor(root, dateISO) {
     for (const file of files) {
       try {
         const { blob, width, height, thumb } = await compressImage(file);
+        if (!blob) throw new Error('这张图读不出来');
         const imageId = `${date}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
         await db.putImage({ id: imageId, blob, thumb, width, height, date, createdAt: Date.now() });
         const url = URL.createObjectURL(blob);
@@ -207,7 +239,7 @@ export async function renderEditor(root, dateISO) {
     }
   });
 
-  const addPhotoBtn = el('button', { class: 'ghost', onclick: () => fileInput.click() }, '＋ 照片');
+  const addPhotoBtn = el('label', { class: 'ghost photo-btn' }, '＋ 照片', fileInput);
   const counter = el('span', { class: 'hint', style: 'margin:0' }, `${charCount(entry)} 字 · ${imageCount(entry)} 张`);
   const saveHint = el('div', { class: 'save-hint' }, el('span', {}, '写完自动保存'), el('span', {}, ''));
 

@@ -418,3 +418,21 @@ button.danger { border: none; background: transparent; color: var(--danger); fon
 .place-name { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .place-meta { font-size: 11px; color: var(--ink-soft); margin-top: 2px; }
 .place-mark { color: var(--dawn); font-size: 12px; white-space: nowrap; }
+
+/* ---------- 选照片 ---------- */
+
+label.photo-btn {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+}
