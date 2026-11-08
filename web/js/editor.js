@@ -57,6 +57,16 @@ export async function renderEditor(root, dateISO) {
     oninput: (e) => { entry.weather = e.target.value; scheduleSave(); }
   });
   const weatherHint = el('div', { class: 'hint', style: 'display:none' });
+  const weatherLog = el('div', { class: 'weather-log' });
+  entry.weatherReadings = Array.isArray(entry.weatherReadings) ? entry.weatherReadings : [];
+
+  function renderWeatherLog() {
+    weatherLog.innerHTML = '';
+    for (const reading of entry.weatherReadings) {
+      weatherLog.append(el('span', { class: 'chip tiny' }, `${reading.time} ${reading.display}`));
+    }
+  }
+  renderWeatherLog();
 
   // ---------- 地点 ----------
   const placesChips = el('div', { class: 'chips' });
@@ -258,7 +268,10 @@ export async function renderEditor(root, dateISO) {
     editor.focus();
   }
 
-  const addPhotoBtn = el('label', { class: 'ghost photo-btn' }, '＋ 照片', fileInput);
+  const addPhotoBtn = el('div', { class: 'photo-wrap' },
+    el('div', { class: 'ghost photo-btn' }, '＋ 照片'),
+    fileInput
+  );
   const counter = el('span', { class: 'hint', style: 'margin:0' }, `${charCount(entry)} 字 · ${imageCount(entry)} 张`);
   const saveHint = el('div', { class: 'save-hint' }, el('span', {}, '写完自动保存'), el('span', {}, ''));
 
@@ -276,14 +289,19 @@ export async function renderEditor(root, dateISO) {
     head,
     el('div', { class: 'row' },
       el('span', { class: 'label' }, '天气'),
-      el('div', { style: 'flex:1;display:flex;align-items:center;gap:8px' },
-        weatherInput,
-        el('button', {
-          class: 'ghost',
-          style: 'padding:4px 9px;font-size:12px;white-space:nowrap',
-          title: '用当前位置查天气',
-          onclick: () => requestWeather(true)
-        }, '📍')
+      el('div', { style: 'flex:1' },
+        el('div', { style: 'display:flex;align-items:center;gap:8px' },
+          weatherInput,
+          isToday
+            ? el('button', {
+                class: 'ghost',
+                style: 'padding:4px 9px;font-size:12px;white-space:nowrap',
+                title: '用当前位置查天气',
+                onclick: () => requestWeather(true)
+              }, '📍')
+            : null
+        ),
+        weatherLog
       )
     ),
     weatherHint,
@@ -330,6 +348,10 @@ export async function renderEditor(root, dateISO) {
   // ---------- 天气：自动填 / 手动点 📍 ----------
   let weatherBusy = false;
   if (isToday && !entry.weather.trim()) requestWeather(false);
+  if (!isToday && !entry.weather.trim()) {
+    weatherHint.textContent = '过去的日子查不到当时的天气，手动写一句吧';
+    weatherHint.style.display = 'block';
+  }
 
   async function requestWeather(force) {
     if (weatherBusy) return;
@@ -387,15 +409,33 @@ export async function renderEditor(root, dateISO) {
   }
 
   function applyWeather(payload) {
-    if (payload.display) {
+    if (!payload.display) return;
+
+    const now = new Date();
+    const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const readings = entry.weatherReadings;
+    const last = readings[readings.length - 1];
+
+    if (last && Date.now() - last.ts < 10 * 60 * 1000) {
+      last.time = time;
+      last.display = payload.display;
+      last.ts = Date.now();
+    } else {
+      readings.push({ time, display: payload.display, ts: Date.now() });
+    }
+
+    if (!weatherInput.value.trim()) {
       weatherInput.value = payload.display;
       entry.weather = payload.display;
     }
+
     if (payload.district && !entry.regions.some((r) => placeName(r) === payload.district)) {
       entry.regions.push(payload.district);
       renderRegions();
     }
-    weatherHint.textContent = '已按定位自动填写，可以改';
+
+    renderWeatherLog();
+    weatherHint.textContent = '天气会随手记下每次的时间和温度，可以改';
     weatherHint.style.display = 'block';
     scheduleSave();
   }

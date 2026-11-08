@@ -436,3 +436,23 @@ label.photo-btn {
   opacity: 0;
   overflow: hidden;
 }
+
+/* ---------- 选照片：透明 input 盖住按钮 ---------- */
+
+.photo-wrap { position: relative; display: inline-block; }
+.photo-wrap .photo-btn { pointer-events: none; }
+.photo-wrap .file-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  font-size: 100px;
+}
+
+/* ---------- 天气读数 ---------- */
+
+.weather-log { display: flex; flex-wrap: wrap; gap: 6px; }
+.weather-log:empty { display: none; }
+.chip.tiny { font-size: 11px; padding: 3px 8px; opacity: 0.9; }
