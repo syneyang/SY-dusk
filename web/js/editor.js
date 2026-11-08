@@ -181,7 +181,7 @@ export async function renderEditor(root, dateISO) {
           onclick: () => { addPlace(place); placeInput.value = ''; }
         },
           el('span', { class: 'suggest-name' }, place.name),
-          el('span', { class: 'suggest-meta' }, [place.district, place.address].filter(Boolean).join(' · '))
+          el('span', { class: 'suggest-meta' }, metaLine(place))
         ));
       }
       placeSuggest.classList.add('open');
@@ -366,6 +366,14 @@ async function imageURL(imageId) {
   const record = await db.getImage(imageId);
   if (!record) return null;
   return URL.createObjectURL(record.blob);
+}
+
+function metaLine(place) {
+  const district = place.district || '';
+  const address = place.address || '';
+  if (!district) return address;
+  if (!address || address === district) return district;
+  return `${district} · ${address}`;
 }
 
 function textToParagraph(text) {
