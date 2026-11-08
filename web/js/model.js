@@ -14,6 +14,11 @@ export function newEntry(date) {
   };
 }
 
+export function placeName(place) {
+  if (!place) return '';
+  return typeof place === 'string' ? place : (place.name || '');
+}
+
 export function normalize(entry) {
   if (!entry) return null;
   entry.weather = entry.weather || '';

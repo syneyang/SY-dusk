@@ -2,13 +2,13 @@
 
 import * as db from './db.js';
 import {
-  newEntry, normalize, compressImage, charCount, imageCount
+  newEntry, normalize, compressImage, charCount, imageCount, placeName
 } from './model.js';
 import {
-  el, toast, debounce, todayISO, prevISO, weekdayCN, monthDayCN, fullCN, daysBetween, isoOf
+  el, toast, debounce, todayISO, prevISO, weekdayCN, monthDayCN, fullCN, daysBetween
 } from './util.js';
 
-let current = null; // { date, entry, editor, saveNow }
+let current = null;
 
 export function flushSave() {
   if (current && current.saveNow) current.saveNow();
@@ -20,11 +20,11 @@ export async function renderEditor(root, dateISO) {
   const entry = stored || newEntry(date);
   const journeyStart = await db.getMeta('journeyStart', '2027-01-01');
   const objectURLs = [];
+  const isToday = date === todayISO();
 
   root.innerHTML = '';
 
   // ---------- 头部 ----------
-  const isToday = date === todayISO();
   const dayIndex = daysBetween(journeyStart, date) + 1;
 
   const head = el('header', { class: 'entry-head' },
@@ -36,7 +36,6 @@ export async function renderEditor(root, dateISO) {
     )
   );
 
-  // ---------- 日期切换 ----------
   const dateInput = el('input', {
     type: 'date',
     value: date,
@@ -49,63 +48,151 @@ export async function renderEditor(root, dateISO) {
     dateInput
   );
 
-  // ---------- 表头字段 ----------
+  // ---------- 天气 ----------
   const weatherInput = el('input', {
     type: 'text',
     value: entry.weather || '',
-    placeholder: '晴 18~24℃（以后会自动填）',
+    placeholder: '晴 18~24℃',
     oninput: (e) => { entry.weather = e.target.value; scheduleSave(); }
   });
+  const weatherHint = el('div', { class: 'hint', style: 'display:none' });
 
-  const placesWrap = el('div', { class: 'chips' });
-  const regionsWrap = el('div', { class: 'chips' });
-
-  function renderChips() {
-    placesWrap.innerHTML = '';
-    for (const place of entry.places) {
-      placesWrap.append(el('button', {
-        class: 'chip',
-        onclick: () => { entry.places = entry.places.filter((p) => p !== place); renderChips(); scheduleSave(); }
-      }, place, el('span', { class: 'x' }, '×')));
+  // ---------- 地点 ----------
+  const placesChips = el('div', { class: 'chips' });
+  const placeInput = el('input', {
+    type: 'text',
+    placeholder: '+ 搜索地点，比如「丁桥」',
+    autocomplete: 'off',
+    onkeydown: (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const value = e.target.value.trim();
+      if (value) addPlace({ name: value });
+      e.target.value = '';
+      clearSuggestions();
     }
-    placesWrap.append(el('input', {
-      type: 'text',
-      placeholder: '+ 地点',
-      style: 'width:auto;min-width:80px;flex:1',
-      onkeydown: (e) => {
-        if (e.key !== 'Enter') return;
-        const value = e.target.value.trim();
-        if (!value) return;
-        if (!entry.places.includes(value)) entry.places.push(value);
-        e.target.value = '';
-        renderChips();
-        scheduleSave();
-      }
-    }));
+  });
+  const placeSuggest = el('div', { class: 'suggest' });
 
-    regionsWrap.innerHTML = '';
-    for (const region of entry.regions) {
-      regionsWrap.append(el('button', {
-        class: 'chip region',
-        onclick: () => { entry.regions = entry.regions.filter((r) => r !== region); renderChips(); scheduleSave(); }
-      }, region, el('span', { class: 'x' }, '×')));
+  // ---------- 区域 ----------
+  const regionChips = el('div', { class: 'chips' });
+  const regionInput = el('input', {
+    type: 'text',
+    placeholder: '+ 区域，比如「拱墅区」',
+    onkeydown: (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const value = e.target.value.trim();
+      if (value) addRegion(value);
+      e.target.value = '';
     }
-    regionsWrap.append(el('input', {
-      type: 'text',
-      placeholder: '+ 区域（丁桥、拱墅…）',
-      style: 'width:auto;min-width:100px;flex:1',
-      onkeydown: (e) => {
-        if (e.key !== 'Enter') return;
-        const value = e.target.value.trim();
-        if (!value) return;
-        if (!entry.regions.includes(value)) entry.regions.push(value);
-        e.target.value = '';
-        renderChips();
-        scheduleSave();
-      }
-    }));
+  });
+
+  function addRegion(name) {
+    const clean = (name || '').trim();
+    if (!clean) return;
+    if (!entry.regions.some((r) => placeName(r) === clean)) entry.regions.push(clean);
+    renderRegions();
+    scheduleSave();
   }
-  renderChips();
+
+  function addPlace(place) {
+    const name = placeName(place).trim();
+    if (!name) return;
+    if (!entry.places.some((p) => placeName(p) === name)) {
+      entry.places.push({
+        name,
+        district: place.district || '',
+        lat: place.lat ?? null,
+        lng: place.lng ?? null
+      });
+    }
+    if (place.district && !entry.regions.some((r) => placeName(r) === place.district)) {
+      entry.regions.push(place.district);
+      renderRegions();
+    }
+    renderPlaces();
+    clearSuggestions();
+    scheduleSave();
+  }
+
+  function renderPlaces() {
+    placesChips.innerHTML = '';
+    for (const place of entry.places) {
+      const name = placeName(place);
+      placesChips.append(el('button', {
+        class: 'chip',
+        onclick: () => {
+          entry.places = entry.places.filter((p) => placeName(p) !== name);
+          renderPlaces();
+          scheduleSave();
+        }
+      }, name, el('span', { class: 'x' }, '×')));
+    }
+  }
+
+  function renderRegions() {
+    regionChips.innerHTML = '';
+    for (const region of entry.regions) {
+      const name = placeName(region);
+      regionChips.append(el('button', {
+        class: 'chip region',
+        onclick: () => {
+          entry.regions = entry.regions.filter((r) => placeName(r) !== name);
+          renderRegions();
+          scheduleSave();
+        }
+      }, name, el('span', { class: 'x' }, '×')));
+    }
+  }
+
+  renderPlaces();
+  renderRegions();
+
+  function clearSuggestions() {
+    placeSuggest.innerHTML = '';
+    placeSuggest.classList.remove('open');
+  }
+
+  let searchSeq = 0;
+  const runSearch = debounce(async (query) => {
+    const q = query.trim();
+    if (q.length < 2) {
+      clearSuggestions();
+      return;
+    }
+    const seq = ++searchSeq;
+    try {
+      const response = await fetch(`/api/places?q=${encodeURIComponent(q)}`);
+      const data = await response.json();
+      if (seq !== searchSeq) return;
+      if (!data.ok) {
+        if (data.code === 'NO_KEY') clearSuggestions();
+        return;
+      }
+      placeSuggest.innerHTML = '';
+      const list = (data.places || []).slice(0, 6);
+      if (!list.length) {
+        placeSuggest.append(el('div', { class: 'suggest-empty' }, '没找到，直接回车当手写地点'));
+      }
+      for (const place of list) {
+        placeSuggest.append(el('button', {
+          class: 'suggest-item',
+          onclick: () => { addPlace(place); placeInput.value = ''; }
+        },
+          el('span', { class: 'suggest-name' }, place.name),
+          el('span', { class: 'suggest-meta' }, [place.district, place.address].filter(Boolean).join(' · '))
+        ));
+      }
+      placeSuggest.classList.add('open');
+    } catch {
+      clearSuggestions();
+    }
+  }, 300);
+
+  placeInput.addEventListener('input', (e) => {
+    runSearch(e.target.value);
+  });
 
   // ---------- 正文 ----------
   const editor = el('div', {
@@ -125,7 +212,6 @@ export async function renderEditor(root, dateISO) {
       editor.append(textToParagraph(block.text));
     }
   }
-
   if (!entry.blocks.length) editor.append(el('p', {}, el('br')));
 
   function updateEmptyState() {
@@ -134,16 +220,12 @@ export async function renderEditor(root, dateISO) {
     editor.classList.toggle('is-empty', !hasText && !hasImage);
   }
 
-  // 粘贴：只取纯文本，按空行分段
   editor.addEventListener('paste', (event) => {
     event.preventDefault();
     const text = event.clipboardData?.getData('text/plain') || '';
     if (!text.trim()) return;
     const paragraphs = text.replace(/\r\n/g, '\n').split(/\n{2,}/).filter((p) => p.trim());
-    const html = paragraphs
-      .map((p) => `<p>${escapeLine(p)}</p>`)
-      .join('');
-    insertHTML(html);
+    insertHTML(paragraphs.map((p) => `<p>${escapeLine(p)}</p>`).join(''));
     scheduleSave();
   });
 
@@ -174,12 +256,8 @@ export async function renderEditor(root, dateISO) {
   });
 
   const addPhotoBtn = el('button', { class: 'ghost', onclick: () => fileInput.click() }, '＋ 照片');
-  const pasteHint = el('span', { class: 'hint', style: 'margin:0' }, `${charCount(entry)} 字 · ${imageCount(entry)} 张`);
-
-  const saveHint = el('div', { class: 'save-hint' },
-    el('span', {}, '写完自动保存'),
-    el('span', {}, '')
-  );
+  const counter = el('span', { class: 'hint', style: 'margin:0' }, `${charCount(entry)} 字 · ${imageCount(entry)} 张`);
+  const saveHint = el('div', { class: 'save-hint' }, el('span', {}, '写完自动保存'), el('span', {}, ''));
 
   // ---------- 组装 ----------
   root.append(
@@ -194,10 +272,17 @@ export async function renderEditor(root, dateISO) {
     ),
     head,
     el('div', { class: 'row' }, el('span', { class: 'label' }, '天气'), weatherInput),
-    el('div', { class: 'row', style: 'align-items:flex-start' }, el('span', { class: 'label' }, '地点'), placesWrap),
-    el('div', { class: 'row', style: 'align-items:flex-start' }, el('span', { class: 'label' }, '区域'), regionsWrap),
+    weatherHint,
+    el('div', { class: 'row', style: 'align-items:flex-start' },
+      el('span', { class: 'label' }, '地点'),
+      el('div', { style: 'flex:1' }, placesChips, placeInput, placeSuggest)
+    ),
+    el('div', { class: 'row', style: 'align-items:flex-start' },
+      el('span', { class: 'label' }, '区域'),
+      el('div', { style: 'flex:1' }, regionChips, regionInput)
+    ),
     editor,
-    el('div', { class: 'toolbar-line' }, addPhotoBtn, pasteHint),
+    el('div', { class: 'toolbar-line' }, addPhotoBtn, counter),
     saveHint,
     fileInput
   );
@@ -220,20 +305,56 @@ export async function renderEditor(root, dateISO) {
 
   async function doSave() {
     collect();
-    if (!entry.blocks.length && !entry.places.length && !entry.regions.length && !entry.weather) {
-      // 全空的就不落库
-      return;
-    }
+    if (!entry.blocks.length && !entry.places.length && !entry.regions.length && !entry.weather) return;
     await db.putEntry(entry);
-    pasteHint.textContent = `${charCount(entry)} 字 · ${imageCount(entry)} 张`;
+    counter.textContent = `${charCount(entry)} 字 · ${imageCount(entry)} 张`;
     saveHint.lastChild.textContent = '已保存 ' + new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
   }
 
   current = { date, entry, saveNow: doSave, cleanup: () => objectURLs.forEach(URL.revokeObjectURL) };
 
-  // 首次进来就清掉空段落
-  if (!entry.blocks.length && !editor.textContent.trim() && !editor.querySelector('img')) {
-    editor.innerHTML = '<p><br></p>';
+  // ---------- 天气自动填（只在今天、且没填过） ----------
+  if (isToday && !entry.weather.trim()) autoFillWeather();
+
+  async function autoFillWeather() {
+    if (!navigator.geolocation) return;
+
+    const cached = await db.getMeta(`weather:${date}`, null);
+    if (cached && Date.now() - cached.ts < 30 * 60 * 1000) {
+      applyWeather(cached);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          const response = await fetch(`/api/weather?lat=${latitude}&lng=${longitude}`);
+          const data = await response.json();
+          if (!data.ok || !data.weather) return;
+          const payload = { display: data.weather.display, district: data.district || '', ts: Date.now() };
+          await db.setMeta(`weather:${date}`, payload);
+          if (!entry.weather.trim()) applyWeather(payload);
+        } catch {
+          // 静默失败，手填就行
+        }
+      },
+      () => {},
+      { timeout: 8000, maximumAge: 10 * 60 * 1000 }
+    );
+  }
+
+  function applyWeather(payload) {
+    if (entry.weather.trim() || weatherInput.value.trim()) return;
+    weatherInput.value = payload.display;
+    entry.weather = payload.display;
+    if (payload.district && !entry.regions.some((r) => placeName(r) === payload.district)) {
+      entry.regions.push(payload.district);
+      renderRegions();
+    }
+    weatherHint.textContent = '已按定位自动填写，可以改';
+    weatherHint.style.display = 'block';
+    scheduleSave();
   }
 
   return current;
@@ -249,8 +370,7 @@ async function imageURL(imageId) {
 
 function textToParagraph(text) {
   const p = document.createElement('p');
-  const lines = text.split('\n');
-  lines.forEach((line, index) => {
+  text.split('\n').forEach((line, index) => {
     if (index > 0) p.append(document.createElement('br'));
     p.append(document.createTextNode(line));
   });

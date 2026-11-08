@@ -1,7 +1,7 @@
 // 设置：开始日期、备份、导出、清空。
 
 import * as db from './db.js';
-import { normalize, plainText, imageIds, charCount } from './model.js';
+import { normalize, plainText, imageIds, charCount, placeName } from './model.js';
 import { el, toast, fullCN, weekdayCN, todayISO, confirmAction } from './util.js';
 
 export async function renderSettings(root) {
@@ -234,7 +234,7 @@ async function exportHTML() {
       return paragraphs;
     }).join('');
 
-    const metaBits = [entry.weather, ...(entry.places || [])].filter(Boolean).join(' · ');
+    const metaBits = [entry.weather, ...(entry.places || []).map(placeName)].filter(Boolean).join(' · ');
 
     parts.push(`<article>
       <h2>${fullCN(entry.date)} <small>${weekdayCN(entry.date)}</small></h2>

@@ -309,3 +309,34 @@ button.danger { border: none; background: transparent; color: var(--danger); fon
 .cal .day.future { color: var(--ink-soft); opacity: 0.4; }
 .cal .blank { visibility: hidden; }
 .cal-nav { background: none; border: none; font-size: 19px; color: var(--ink-soft); padding: 0 4px; font-family: inherit; }
+
+/* ---------- 地点搜索建议 ---------- */
+
+.suggest { display: none; }
+.suggest.open {
+  display: block;
+  margin-top: 6px;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: var(--card);
+  overflow: hidden;
+}
+.suggest-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: none;
+  border-bottom: 1px solid var(--hairline);
+  text-align: left;
+  font-family: inherit;
+  color: var(--ink);
+}
+.suggest-item:last-child { border-bottom: none; }
+.suggest-item:active { background: var(--dawn-soft); }
+.suggest-name { font-size: 15px; }
+.suggest-meta { font-size: 11px; color: var(--ink-soft); }
+.suggest-empty { padding: 10px 12px; font-size: 12px; color: var(--ink-soft); }

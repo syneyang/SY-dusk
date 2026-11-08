@@ -1,7 +1,7 @@
 // 时光：全部日记，按「年-月」分组倒序。
 
 import * as db from './db.js';
-import { normalize, firstLine, imageIds, charCount, plainText } from './model.js';
+import { normalize, firstLine, imageIds, charCount, plainText, placeName } from './model.js';
 import { el, monthTitle, weekdayCN, toast } from './util.js';
 
 export async function renderList(root) {
@@ -39,7 +39,7 @@ async function renderRow(entry) {
   const meta = [];
 
   if (entry.weather) meta.push(entry.weather);
-  if (entry.places?.length) meta.push(entry.places.join(' · '));
+  if (entry.places?.length) meta.push(entry.places.map(placeName).join(' · '));
   const chars = charCount(entry);
   if (chars) meta.push(`${chars} 字`);
   if (imageIds(entry).length) meta.push(`${imageIds(entry).length} 张照片`);
