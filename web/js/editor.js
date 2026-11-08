@@ -372,7 +372,8 @@ export async function renderEditor(root, dateISO) {
       el('div', { style: 'flex:1' }, regionChips, regionInput)
     ),
     editor,
-    el('div', { class: 'toolbar-line' }, addPhotoBtn, counter),
+    el('div', { class: 'toolbar-line' }, addPhotoBtn, counter,
+      el('a', { class: 'read-link', href: `#/read/${date}` }, '看一眼 ›')),
     photoHint,
     photoFallback,
     saveHint,

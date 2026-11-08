@@ -4,12 +4,13 @@ import { renderEditor, flushSave, cleanupEditor } from './editor.js';
 import { renderList } from './list.js';
 import { renderReview } from './review.js';
 import { renderSettings } from './settings.js';
+import { renderRead } from './read.js';
 import { todayISO } from './util.js';
 
 const view = document.getElementById('view');
 
 function setTab(path) {
-  const tab = path === 'entry' || path === 'today' ? 'today' : path;
+  const tab = path === 'entry' || path === 'read' || path === 'today' ? 'today' : path;
   document.querySelectorAll('.tabbar a').forEach((link) => {
     link.classList.toggle('active', link.dataset.tab === tab);
   });
@@ -25,10 +26,14 @@ async function route() {
   const param = segments[1] || '';
 
   setTab(path);
+  view.className = 'view';
   window.scrollTo(0, 0);
 
   try {
-    if (path === 'entry' && /^\d{4}-\d{2}-\d{2}$/.test(param)) {
+    if (path === 'read' && /^\d{4}-\d{2}-\d{2}$/.test(param)) {
+      view.classList.add('view-read');
+      await renderRead(view, param);
+    } else if (path === 'entry' && /^\d{4}-\d{2}-\d{2}$/.test(param)) {
       await renderEditor(view, param);
     } else if (path === 'today') {
       await renderEditor(view, todayISO());

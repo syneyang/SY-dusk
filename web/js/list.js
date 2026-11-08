@@ -56,7 +56,7 @@ async function renderRow(entry) {
     }
   }
 
-  return el('a', { class: 'entry-row', href: `#/entry/${entry.date}` },
+  return el('a', { class: 'entry-row', href: `#/read/${entry.date}` },
     el('div', { class: 'num' }, String(day), el('small', {}, weekdayCN(entry.date))),
     el('div', { class: 'body' },
       el('div', { class: 'title' }, title),
