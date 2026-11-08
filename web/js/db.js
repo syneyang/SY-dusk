@@ -16,6 +16,16 @@ export function hasMasterKey() {
   return !!masterKey;
 }
 
+// 判断一条记录是不是「还没加密」的旧数据。不看版本号，看形状：
+// 日记有 blocks 字段；照片的 blob 是 Blob 而不是 {iv, ct}。
+function isLegacyEntry(record) {
+  return !!record && (Array.isArray(record.blocks) || !record.blob || !record.blob.ct);
+}
+
+function isLegacyImage(record) {
+  return !!record && (record.blob instanceof Blob || !record.blob || !record.blob.ct);
+}
+
 function openDB() {
   if (dbPromise) return dbPromise;
   dbPromise = new Promise((resolve, reject) => {
@@ -67,14 +77,13 @@ export async function getEntry(date) {
   const record = await withStore('entries', 'readonly', (s) => s.get(date));
   if (!record) return null;
   if (record.deleted) return null;
-  if (record.v === 2 && masterKey) {
-    try {
-      return await decryptJSON(masterKey, record.blob);
-    } catch {
-      return null;
-    }
+  if (isLegacyEntry(record)) return record;
+  if (!masterKey) return null;
+  try {
+    return await decryptJSON(masterKey, record.blob);
+  } catch {
+    return null;
   }
-  return record; // 旧的明文记录
 }
 
 export async function putEntry(entry) {
@@ -103,14 +112,14 @@ export async function allEntries() {
   const out = [];
   for (const record of records) {
     if (record.deleted) continue;
-    if (record.v === 2 && masterKey) {
-      try {
-        out.push(await decryptJSON(masterKey, record.blob));
-      } catch {
-        // 解不开的跳过
-      }
-    } else {
+    if (isLegacyEntry(record)) {
       out.push(record);
+      continue;
+    }
+    try {
+      out.push(await decryptJSON(masterKey, record.blob));
+    } catch {
+      // 解不开的跳过
     }
   }
   return out;
@@ -128,9 +137,9 @@ export async function entryIndex() {
 
 export async function needsMigration() {
   const entries = await withStore('entries', 'readonly', (s) => s.getAll());
-  if (entries.some((r) => r.v !== 2)) return true;
+  if (entries.some(isLegacyEntry)) return true;
   const images = await withStore('images', 'readonly', (s) => s.getAll());
-  return images.some((r) => r.v !== 2);
+  return images.some(isLegacyImage);
 }
 
 // ---------- 给同步用的原始记录（已经是密文，不解密） ----------
@@ -184,7 +193,7 @@ export async function putImage(record) {
 export async function getImage(id) {
   const record = await withStore('images', 'readonly', (s) => s.get(id));
   if (!record) return null;
-  if (record.v !== 2) return record; // 旧明文，原样返回
+  if (isLegacyImage(record)) return record; // 旧明文，原样返回
 
   let bytes;
   try {
@@ -209,7 +218,7 @@ export async function allImages() {
   const records = await withStore('images', 'readonly', (s) => s.getAll());
   const out = [];
   for (const record of records) {
-    if (record.v !== 2) {
+    if (isLegacyImage(record)) {
       out.push(record);
       continue;
     }
