@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>朝夕 · 界面方向</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    display: flex;
+    gap: 24px;
+    padding: 24px;
+    background: #3a3a3c;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .phone {
+    width: 390px;
+    height: 844px;
+    border-radius: 44px;
+    overflow: hidden;
+    position: relative;
+    flex: none;
+    box-shadow: 0 24px 60px rgba(0,0,0,.4);
+  }
+  .label {
+    position: absolute;
+    top: 14px; left: 50%; transform: translateX(-50%);
+    font-size: 11px; letter-spacing: 2px; color: rgba(0,0,0,.35);
+    z-index: 5;
+  }
+  .screen { height: 100%; overflow: hidden; padding: 56px 20px 0; }
+
+  /* ---------- A：像手记 ---------- */
+  .a { background: #F2F2F7; color: #1C1C1E; }
+  .a .label { color: rgba(0,0,0,.3); }
+  .a .date-small { font-size: 13px; color: #8E8E93; letter-spacing: .5px; }
+  .a .date-big { font-size: 40px; font-weight: 700; letter-spacing: -1px; margin-top: 2px; }
+  .a .card {
+    background: #fff; border-radius: 22px; padding: 18px;
+    margin-top: 16px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.04);
+  }
+  .a .weather-row { display: flex; align-items: center; gap: 12px; }
+  .a .weather-icon {
+    width: 44px; height: 44px; border-radius: 14px;
+    background: linear-gradient(160deg, #FFD9A0, #FF9F5A);
+  }
+  .a .weather-text { font-size: 17px; font-weight: 600; }
+  .a .weather-sub { font-size: 12px; color: #8E8E93; margin-top: 2px; }
+  .a .pill-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .a .pill {
+    background: #F2F2F7; border-radius: 999px; padding: 7px 13px;
+    font-size: 13px; color: #3A3A3C;
+  }
+  .a .pill.accent { background: #FFEEDF; color: #C2622A; }
+  .a .body { font-size: 17px; line-height: 1.7; margin-top: 16px; color: #1C1C1E; }
+  .a .photo { height: 150px; border-radius: 16px; margin-top: 14px; background: linear-gradient(150deg,#C9B8A8,#8C7B6B); }
+  .a .tabs { position: absolute; bottom: 0; left: 0; right: 0; height: 83px; background: rgba(249,249,249,.94);
+    border-top: .5px solid #D1D1D6; display: flex; }
+  .a .tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 10px; color: #8E8E93; }
+  .a .tab.on { color: #FF9500; }
+  .a .tab i { font-size: 20px; font-style: normal; }
+
+  /* ---------- B：现在的纸 ---------- */
+  .b { background: #F9F4EC; color: #2B2620; }
+  .b .date-big { font-family: "Songti SC", serif; font-size: 40px; font-weight: 600; }
+  .b .date-sub { font-size: 13px; color: #6B635A; margin-top: 4px; }
+  .b .row { display: flex; gap: 12px; align-items: baseline; margin-top: 16px; font-size: 15px; }
+  .b .k { font-size: 12px; color: #6B635A; letter-spacing: 1px; width: 36px; }
+  .b .line { border-bottom: 1px dashed #E2DCD1; padding-bottom: 6px; flex: 1; }
+  .b .chip { display: inline-block; background: rgba(205,111,58,.12); color: #CD6F3A; border-radius: 999px; padding: 4px 10px; font-size: 12px; margin-right: 6px; }
+  .b .body { font-size: 16px; line-height: 1.85; margin-top: 22px; }
+  .b .photo { height: 150px; border-radius: 12px; margin-top: 14px; background: linear-gradient(150deg,#C9B8A8,#8C7B6B); }
+  .b .tabs { position: absolute; bottom: 0; left: 0; right: 0; height: 83px; background: rgba(249,244,236,.95);
+    border-top: .5px solid #E2DCD1; display: flex; }
+  .b .tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 10px; color: #6B635A; }
+  .b .tab.on { color: #CD6F3A; }
+  .b .tab i { font-size: 20px; font-style: normal; }
+
+  /* ---------- C：深色 ---------- */
+  .c { background: #0E0E10; color: #F2F2F7; }
+  .c .label { color: rgba(255,255,255,.25); }
+  .c .date-small { font-size: 13px; color: #8E8E93; }
+  .c .date-big { font-size: 40px; font-weight: 700; letter-spacing: -1px; margin-top: 2px; }
+  .c .card { background: #1C1C1E; border-radius: 22px; padding: 18px; margin-top: 16px; border: .5px solid #2C2C2E; }
+  .c .weather-row { display: flex; align-items: center; gap: 12px; }
+  .c .weather-icon { width: 44px; height: 44px; border-radius: 14px; background: linear-gradient(160deg,#4A3A2A,#8A5A2A); }
+  .c .weather-text { font-size: 17px; font-weight: 600; }
+  .c .weather-sub { font-size: 12px; color: #8E8E93; margin-top: 2px; }
+  .c .pill-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .c .pill { background: #2C2C2E; border-radius: 999px; padding: 7px 13px; font-size: 13px; color: #D1D1D6; }
+  .c .pill.accent { background: #3A2A1E; color: #FFB27A; }
+  .c .body { font-size: 17px; line-height: 1.7; margin-top: 16px; color: #E5E5EA; }
+  .c .photo { height: 150px; border-radius: 16px; margin-top: 14px; background: linear-gradient(150deg,#4A4038,#2A2420); }
+  .c .tabs { position: absolute; bottom: 0; left: 0; right: 0; height: 83px; background: rgba(20,20,22,.95);
+    border-top: .5px solid #2C2C2E; display: flex; }
+  .c .tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 10px; color: #636366; }
+  .c .tab.on { color: #FF9F0A; }
+  .c .tab i { font-size: 20px; font-style: normal; }
+</style>
+</head>
+<body>
+
+<!-- A -->
+<div class="phone a">
+  <span class="label">A · 苹果卡片风</span>
+  <div class="screen">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div class="date-small">2026年11月8日</div>
+      <div class="date-small">补写昨天</div>
+    </div>
+    <div class="date-big">周日</div>
+
+    <div class="card">
+      <div class="weather-row">
+        <div class="weather-icon"></div>
+        <div>
+          <div class="weather-text">阴 16℃</div>
+          <div class="weather-sub">21:15 · 杭州 拱墅区</div>
+        </div>
+      </div>
+      <div class="pill-row">
+        <span class="pill accent">冠宇隽园</span>
+        <span class="pill accent">城北花园城</span>
+        <span class="pill">上城区丁兰街道</span>
+      </div>
+    </div>
+
+    <div class="body">今天从丁桥出发，绕到城北花园城吃了顿火锅。风很大，但太阳出来的时候还是想在外面多站一会儿。</div>
+    <div class="photo"></div>
+  </div>
+  <div class="tabs">
+    <div class="tab on"><i>☀︎</i>今天</div><div class="tab"><i>▤</i>时光</div><div class="tab"><i>◔</i>分析</div><div class="tab"><i>⚙︎</i>设置</div>
+  </div>
+</div>
+
+<!-- B -->
+<div class="phone b">
+  <span class="label">B · 现在的纸感</span>
+  <div class="screen">
+    <div class="date-big">11月8日</div>
+    <div class="date-sub">周日 · 2026</div>
+
+    <div class="row"><div class="k">天气</div><div class="line">阴 16℃</div></div>
+    <div class="row"><div class="k">地点</div><div class="line"><span class="chip">冠宇隽园</span><span class="chip">城北花园城</span></div></div>
+    <div class="row"><div class="k">区域</div><div class="line">上城区丁兰街道</div></div>
+
+    <div class="body">今天从丁桥出发，绕到城北花园城吃了顿火锅。风很大，但太阳出来的时候还是想在外面多站一会儿。</div>
+    <div class="photo"></div>
+  </div>
+  <div class="tabs">
+    <div class="tab on"><i>☀︎</i>今天</div><div class="tab"><i>▤</i>时光</div><div class="tab"><i>◔</i>分析</div><div class="tab"><i>⚙︎</i>设置</div>
+  </div>
+</div>
+
+<!-- C -->
+<div class="phone c">
+  <span class="label">C · 深色</span>
+  <div class="screen">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div class="date-small">2026年11月8日</div>
+      <div class="date-small">补写昨天</div>
+    </div>
+    <div class="date-big">周日</div>
+
+    <div class="card">
+      <div class="weather-row">
+        <div class="weather-icon"></div>
+        <div>
+          <div class="weather-text">阴 16℃</div>
+          <div class="weather-sub">21:15 · 杭州 拱墅区</div>
+        </div>
+      </div>
+      <div class="pill-row">
+        <span class="pill accent">冠宇隽园</span>
+        <span class="pill accent">城北花园城</span>
+        <span class="pill">上城区丁兰街道</span>
+      </div>
+    </div>
+
+    <div class="body">今天从丁桥出发，绕到城北花园城吃了顿火锅。风很大，但太阳出来的时候还是想在外面多站一会儿。</div>
+    <div class="photo"></div>
+  </div>
+  <div class="tabs">
+    <div class="tab on"><i>☀︎</i>今天</div><div class="tab"><i>▤</i>时光</div><div class="tab"><i>◔</i>分析</div><div class="tab"><i>⚙︎</i>设置</div>
+  </div>
+</div>
+
+</body>
+</html>
