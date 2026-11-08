@@ -120,6 +120,7 @@ input::placeholder, textarea::placeholder { color: color-mix(in srgb, var(--ink-
   font-family: inherit;
 }
 .chip .x { opacity: 0.55; font-size: 11px; padding: 0 2px; }
+.chip-label { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chip.region { background: color-mix(in srgb, var(--dusk) 12%, transparent); color: var(--dusk); }
 
 .editor {

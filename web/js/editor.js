@@ -123,7 +123,7 @@ export async function renderEditor(root, dateISO) {
           renderPlaces();
           scheduleSave();
         }
-      }, name, el('span', { class: 'x' }, '×')));
+      }, el('span', { class: 'chip-label', title: name }, name), el('span', { class: 'x' }, '×')));
     }
   }
 
@@ -138,7 +138,7 @@ export async function renderEditor(root, dateISO) {
           renderRegions();
           scheduleSave();
         }
-      }, name, el('span', { class: 'x' }, '×')));
+      }, el('span', { class: 'chip-label', title: name }, name), el('span', { class: 'x' }, '×')));
     }
   }
 
