@@ -118,6 +118,13 @@ export async function entryIndex() {
   return records.map((r) => ({ date: r.date, updatedAt: r.updatedAt || 0 }));
 }
 
+export async function needsMigration() {
+  const entries = await withStore('entries', 'readonly', (s) => s.getAll());
+  if (entries.some((r) => !r.blob)) return true;
+  const images = await withStore('images', 'readonly', (s) => s.getAll());
+  return images.some((r) => !r.blob || (r.thumb && !r.thumb.ct));
+}
+
 // ---------- 照片 ----------
 
 export async function putImage(record) {

@@ -99,6 +99,8 @@ function showRecovery(root, code) {
 }
 
 async function migrate(root) {
+  if (!(await db.needsMigration())) return;
+
   const index = await db.entryIndex();
   const images = await db.allImages();
   const total = index.length + images.length;
