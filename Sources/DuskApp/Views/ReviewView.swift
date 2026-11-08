@@ -163,7 +163,10 @@ struct ReviewView: View {
             }
             .frame(height: 150)
             .chartYAxis {
-                AxisMarks(position: .leading)
+                AxisMarks(position: .leading) { _ in
+                    AxisGridLine()
+                    AxisValueLabel()
+                }
             }
         }
         .padding(16)

@@ -96,3 +96,23 @@ A：目前 App 只做了 iOS。导出的 Markdown 可以直接在 Mac 上读；�
 
 **Q：iOS 版本低于 17 怎么办？**
 A：iPhone 12 Pro Max 支持到 iOS 26，先看 `设置 → 通用 → 关于本机` 的版本号。如果是 16，需要把数据层从 SwiftData 换成 Core Data，告诉我，我来改。
+
+## 8. 关于 xcodegen
+
+`Dusk.xcodeproj` 是从 `project.yml` 生成的。工作区里放了一份可用的二进制：`.tools/xcodegen/bin/xcodegen`（已加入 `.gitignore`）。
+
+- 新增 Swift 文件、改了 `project.yml` 之后，跑一次 `./.tools/xcodegen/bin/xcodegen generate`。
+- 如果这份二进制丢了：`brew install xcodegen`（这台机器的 Homebrew 目录 `/usr/local/Cellar` 目前不可写，要先 `sudo chown -R $(whoami) /usr/local/Cellar`），或者从 <https://github.com/yonaskolb/XcodeGen/releases> 下载 `xcodegen.zip` 解压到 `.tools/`。
+
+## 9. 当前验证到了哪一步
+
+因为本机没有 Xcode，下面这些已经做过、那些还没做：
+
+- ✅ 所有 Swift 源码通过 `swiftc -parse` 语法检查
+- ✅ `Dusk.xcodeproj` 通过 `plutil -lint`，本地 Swift Package 依赖已正确连上
+- ✅ 资源目录（图标、强调色、启动色）JSON 校验通过
+- ✅ App 图标已生成（1024×1024）
+- ⏳ 真正的编译（`xcodebuild build`）：等 Xcode
+- ⏳ 核心逻辑的运行时测试：等 Xcode 之后跑 `./Scripts/check-core.sh` 和 `cd Packages/DuskCore && swift test`
+
+所以第一次在 Xcode 里编译，大概率会有几个小错误要修（通常是 API 签名细节）。把报错贴给我，或者直接说「装好了」，我来跑一遍修完。

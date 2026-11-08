@@ -18,7 +18,7 @@ struct SectionTitle: View {
 
 struct TagChip: View {
     let text: String
-    var onDelete: (() -> Void)?
+    var onDelete: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 4) {

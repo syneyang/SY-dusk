@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// 一天的开始与结束之间的颜色：暖纸、墨色、晨光橙、暮色紫。
 enum Palette {

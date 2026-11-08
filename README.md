@@ -43,6 +43,12 @@ dusk/
 └── Support/Info.plist      # 由 xcodegen 生成
 ```
 
+## 当前状态
+
+- ✅ 工程骨架、四个页面、数据层、导出/导入、图标、文档
+- ✅ 源码语法检查、工程文件校验、资源校验
+- ⏳ 等待 Xcode：真实编译与真机运行（这台机器目前没装 Xcode，详见 [Docs/BUILD.md](Docs/BUILD.md)）
+
 ## 怎么跑起来
 
 见 [Docs/BUILD.md](Docs/BUILD.md)。一句话版本：装 Xcode → 打开 `Dusk.xcodeproj` → 选自己的免费 Apple ID 作为 Team → 连上 iPhone → ⌘R。
