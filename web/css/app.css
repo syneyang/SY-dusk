@@ -491,7 +491,7 @@ label.photo-btn {
 }
 .read-sub { font-size: 13px; opacity: .88; margin-top: 4px; }
 
-.read-head { padding: 30px 20px 0; }
+.read-head { padding: 78px 20px 0; }
 .read-date.plain { color: var(--ink); text-shadow: none; }
 .read-sub.plain { color: var(--ink-soft); }
 
