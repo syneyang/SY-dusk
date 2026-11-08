@@ -1,0 +1,15 @@
+# Swift Package Manager / 构建产物
+.build/
+DerivedData/
+*.xcuserstate
+
+# Xcode 用户私有文件
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# 本地工具（xcodegen 二进制，随时可重新下载）
+.tools/
+
+# 系统文件
+.DS_Store
