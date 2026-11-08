@@ -225,3 +225,87 @@ button.danger { border: none; background: transparent; color: var(--danger); fon
   position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%;
   border: none; padding: 0;
 }
+
+/* ---------- 分析页 ---------- */
+
+.streak-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 10px; margin-top: 10px; }
+
+.streak-main {
+  background: linear-gradient(160deg, #43352d, #241d19);
+  color: #f7ece2;
+  border-radius: 20px;
+  padding: 18px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.streak-label { font-size: 12px; opacity: 0.72; letter-spacing: 1px; }
+.streak-value { font-family: "Songti SC", "STSong", Georgia, serif; font-size: 62px; line-height: 1.05; margin-top: 2px; }
+.streak-unit { font-size: 12px; opacity: 0.7; }
+.streak-note { font-size: 11px; opacity: 0.62; margin-top: 10px; line-height: 1.5; }
+
+.streak-side { display: flex; flex-direction: column; gap: 10px; }
+.streak-tile {
+  flex: 1;
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.streak-tile-value { font-family: "Songti SC", "STSong", Georgia, serif; font-size: 26px; color: var(--dawn); }
+.streak-tile-value small { font-size: 11px; color: var(--ink-soft); margin-left: 3px; }
+.streak-tile-label { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+
+.stat-hero {
+  margin-top: 10px;
+  background: linear-gradient(160deg, #6b5b85, #443a58);
+  color: #fff;
+  border-radius: 20px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.stat-hero-value { font-family: "Songti SC", "STSong", Georgia, serif; font-size: 44px; line-height: 1; }
+.stat-hero-label { font-size: 11px; opacity: 0.72; margin-top: 4px; }
+.mini-bars { display: flex; align-items: flex-end; gap: 4px; flex: 1; height: 58px; }
+.mini-bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; height: 100%; justify-content: flex-end; }
+.mini-bar { width: 100%; background: rgba(255, 255, 255, 0.92); border-radius: 2px; }
+.mini-bar-col span { font-size: 8px; opacity: 0.6; }
+
+.quad { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.quad-item { background: var(--card); border: 1px solid var(--hairline); border-radius: 14px; padding: 12px 14px; }
+.quad-value { font-family: "Songti SC", "STSong", Georgia, serif; font-size: 26px; line-height: 1.1; }
+.quad-label { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.cal .wd { text-align: center; font-size: 11px; color: var(--ink-soft); padding-bottom: 6px; }
+.cal .day {
+  position: relative;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 14px;
+}
+.cal .day.has::after {
+  content: "";
+  position: absolute;
+  bottom: 5px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--dawn);
+}
+.cal .day.today { background: var(--dawn-soft); color: var(--dawn); font-weight: 600; }
+.cal .day.future { color: var(--ink-soft); opacity: 0.4; }
+.cal .blank { visibility: hidden; }
+.cal-nav { background: none; border: none; font-size: 19px; color: var(--ink-soft); padding: 0 4px; font-family: inherit; }
