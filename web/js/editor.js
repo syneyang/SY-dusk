@@ -215,17 +215,20 @@ export async function renderEditor(root, dateISO) {
 
   editor.addEventListener('paste', (event) => {
     const items = [...(event.clipboardData?.items || [])];
+    const files = [...(event.clipboardData?.files || [])];
+
+    // 图片：有的系统放在 items 里，有的只放在 files 里
     const imageItem = items.find((item) => item.type && item.type.startsWith('image/'));
-    if (imageItem) {
+    const imageFile = imageItem ? imageItem.getAsFile() : files.find((f) => f.type && f.type.startsWith('image/'));
+    if (imageFile) {
       event.preventDefault();
-      const file = imageItem.getAsFile();
-      if (file) addPhotoFile(file);
+      addPhotoFile(imageFile);
       return;
     }
 
-    event.preventDefault();
     const text = event.clipboardData?.getData('text/plain') || '';
-    if (!text.trim()) return;
+    if (!text.trim()) return;  // 没东西可处理就交回给系统，别吞
+    event.preventDefault();
     const paragraphs = text.replace(/\r\n/g, '\n').split(/\n{2,}/).filter((p) => p.trim());
     insertHTML(paragraphs.map((p) => `<p>${escapeLine(p)}</p>`).join(''));
     scheduleSave();
@@ -240,6 +243,7 @@ export async function renderEditor(root, dateISO) {
   const fileInput = el('input', { type: 'file', accept: 'image/*', multiple: true, class: 'file-input' });
   const photoHint = el('div', { class: 'hint', style: 'display:none' });
   let photoHintTimer = null;
+  let photoWatchdog = null;
 
   function showPhotoHint(text, keep = false) {
     photoHint.textContent = text;
@@ -267,8 +271,15 @@ export async function renderEditor(root, dateISO) {
     }
   }
 
-  fileInput.addEventListener('click', () => showPhotoHint('正在打开相册…', true));
-  fileInput.addEventListener('change', async (event) => {
+  const nativeInput = el('input', { type: 'file', accept: 'image/*', multiple: true, class: 'native-file' });
+  const photoFallback = el('div', { class: 'photo-fallback', style: 'display:none' },
+    el('div', { class: 'hint', style: 'margin:0 0 6px' }, '相册没弹出来？点下面的原生选择器：'),
+    nativeInput
+  );
+
+  async function handleFiles(event) {
+    clearTimeout(photoWatchdog);
+    photoFallback.style.display = 'none';
     const files = [...event.target.files];
     event.target.value = '';
     if (!files.length) {
@@ -277,7 +288,11 @@ export async function renderEditor(root, dateISO) {
     }
     showPhotoHint(`选了 ${files.length} 张，开始处理…`, true);
     for (const file of files) await addPhotoFile(file);
-  });
+  }
+
+  fileInput.addEventListener('change', handleFiles);
+  nativeInput.addEventListener('change', handleFiles);
+
 
   /** 选完照片后焦点可能已经丢了，这时就把图片接在最后。 */
   function insertImage(url, imageId) {
@@ -297,10 +312,21 @@ export async function renderEditor(root, dateISO) {
     editor.focus();
   }
 
-  const addPhotoBtn = el('div', { class: 'photo-wrap' },
+  const photoWrap = el('div', { class: 'photo-wrap' },
     el('div', { class: 'ghost photo-btn' }, '＋ 照片'),
     fileInput
   );
+  const addPhotoBtn = photoWrap;
+
+  // 点了按钮，2.5 秒内没等到选择结果，就把原生控件露出来
+  photoWrap.addEventListener('click', () => {
+    showPhotoHint('正在打开相册…', true);
+    clearTimeout(photoWatchdog);
+    photoWatchdog = setTimeout(() => {
+      photoFallback.style.display = 'block';
+      showPhotoHint('相册没弹出来，用下面的原生选择器试试', true);
+    }, 2500);
+  });
   const counter = el('span', { class: 'hint', style: 'margin:0' }, `${charCount(entry)} 字 · ${imageCount(entry)} 张`);
   const saveHint = el('div', { class: 'save-hint' }, el('span', {}, '写完自动保存'), el('span', {}, ''));
 
@@ -345,6 +371,7 @@ export async function renderEditor(root, dateISO) {
     editor,
     el('div', { class: 'toolbar-line' }, addPhotoBtn, counter),
     photoHint,
+    photoFallback,
     saveHint,
     fileInput
   );

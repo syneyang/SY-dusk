@@ -456,3 +456,19 @@ label.photo-btn {
 .weather-log { display: flex; flex-wrap: wrap; gap: 6px; }
 .weather-log:empty { display: none; }
 .chip.tiny { font-size: 11px; padding: 3px 8px; opacity: 0.9; }
+
+/* ---------- 照片兜底：系统原生选择器 ---------- */
+
+.photo-fallback {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px dashed var(--hairline);
+  border-radius: 12px;
+}
+
+.native-file {
+  display: block;
+  width: 100%;
+  font-size: 15px;
+  color: var(--ink);
+}
