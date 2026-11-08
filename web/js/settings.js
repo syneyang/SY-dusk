@@ -2,7 +2,7 @@
 
 import * as db from './db.js';
 import { normalize, plainText, imageIds, charCount, placeName } from './model.js';
-import { el, toast, fullCN, weekdayCN, todayISO, confirmAction } from './util.js';
+import { el, toast, fullCN, weekdayCN, todayISO, confirmAction, APP_VERSION } from './util.js';
 
 export async function renderSettings(root) {
   const journeyStart = await db.getMeta('journeyStart', '2027-01-01');
@@ -118,7 +118,7 @@ export async function renderSettings(root) {
   ));
 
   root.append(el('div', { class: 'hint', style: 'text-align:center;margin-top:22px' },
-    '朝夕 v0.1 · 只给自己用的日记本'));
+    `朝夕 v${APP_VERSION} · 只给自己用的日记本`));
 }
 
 function daysAgo(timestamp) {

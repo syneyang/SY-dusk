@@ -214,6 +214,15 @@ export async function renderEditor(root, dateISO) {
   }
 
   editor.addEventListener('paste', (event) => {
+    const items = [...(event.clipboardData?.items || [])];
+    const imageItem = items.find((item) => item.type && item.type.startsWith('image/'));
+    if (imageItem) {
+      event.preventDefault();
+      const file = imageItem.getAsFile();
+      if (file) addPhotoFile(file);
+      return;
+    }
+
     event.preventDefault();
     const text = event.clipboardData?.getData('text/plain') || '';
     if (!text.trim()) return;
@@ -229,25 +238,45 @@ export async function renderEditor(root, dateISO) {
 
   // ---------- 照片 ----------
   const fileInput = el('input', { type: 'file', accept: 'image/*', multiple: true, class: 'file-input' });
+  const photoHint = el('div', { class: 'hint', style: 'display:none' });
+  let photoHintTimer = null;
+
+  function showPhotoHint(text, keep = false) {
+    photoHint.textContent = text;
+    photoHint.style.display = 'block';
+    clearTimeout(photoHintTimer);
+    if (!keep) photoHintTimer = setTimeout(() => { photoHint.style.display = 'none'; }, 4000);
+  }
+
+  async function addPhotoFile(file) {
+    showPhotoHint('正在处理照片…', true);
+    try {
+      const { blob, width, height, thumb } = await compressImage(file);
+      if (!blob) throw new Error('这张图读不出来');
+      const imageId = `${date}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      await db.putImage({ id: imageId, blob, thumb, width, height, date, createdAt: Date.now() });
+      const url = URL.createObjectURL(blob);
+      objectURLs.push(url);
+      insertImage(url, imageId);
+      updateEmptyState();
+      await doSave();
+      showPhotoHint('照片已加进来');
+    } catch (error) {
+      showPhotoHint('照片没加上：' + (error.message || '未知错误'), true);
+      toast('照片没加上：' + (error.message || '未知错误'));
+    }
+  }
+
+  fileInput.addEventListener('click', () => showPhotoHint('正在打开相册…', true));
   fileInput.addEventListener('change', async (event) => {
     const files = [...event.target.files];
     event.target.value = '';
-    if (!files.length) return;
-    for (const file of files) {
-      try {
-        const { blob, width, height, thumb } = await compressImage(file);
-        if (!blob) throw new Error('这张图读不出来');
-        const imageId = `${date}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-        await db.putImage({ id: imageId, blob, thumb, width, height, date, createdAt: Date.now() });
-        const url = URL.createObjectURL(blob);
-        objectURLs.push(url);
-        insertImage(url, imageId);
-        updateEmptyState();
-        scheduleSave();
-      } catch (error) {
-        toast('有张照片没能处理：' + (error.message || '未知错误'));
-      }
+    if (!files.length) {
+      showPhotoHint('没有选到照片');
+      return;
     }
+    showPhotoHint(`选了 ${files.length} 张，开始处理…`, true);
+    for (const file of files) await addPhotoFile(file);
   });
 
   /** 选完照片后焦点可能已经丢了，这时就把图片接在最后。 */
@@ -315,6 +344,7 @@ export async function renderEditor(root, dateISO) {
     ),
     editor,
     el('div', { class: 'toolbar-line' }, addPhotoBtn, counter),
+    photoHint,
     saveHint,
     fileInput
   );
