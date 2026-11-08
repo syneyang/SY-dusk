@@ -32,11 +32,9 @@ export async function renderRead(root, dateISO) {
   const images = items.filter((i) => i.type === 'image');
   const hero = entry.coverImageId ? images.find((i) => i.id === entry.coverImageId) : null;
 
-  const meta = [
-    entry.weather,
-    ...entry.places.map(placeName),
-    ...entry.regions.map(placeName)
-  ].filter(Boolean);
+  const places = entry.places.map(placeName).filter(Boolean);
+  const regions = entry.regions.map(placeName).filter(Boolean);
+  let metaExpanded = false;
 
   // ---------- 浮动返回 ----------
   root.append(el('div', { class: 'read-bar' },
@@ -62,13 +60,47 @@ export async function renderRead(root, dateISO) {
   }
 
   // ---------- 元信息 ----------
-  if (meta.length) {
-    root.append(el('div', { class: 'read-meta' },
-      ...meta.map((text, index) => el('span', { class: index === 0 && entry.weather ? 'read-meta-weather' : '' }, text))
-    ));
+  const metaHost = el('div', { class: 'read-meta' });
+  root.append(metaHost);
+
+  function renderMeta() {
+    metaHost.innerHTML = '';
+    const head = [];
+    if (entry.weather) head.push(el('span', { class: 'read-meta-weather' }, entry.weather));
+    head.push(...places.slice(0, 1).map((text) => el('span', {}, text)));
+    head.push(...regions.slice(0, 1).map((text) => el('span', {}, text)));
+    metaHost.append(...head);
+
+    const hidden = places.slice(1).concat(regions.slice(1));
+    if (hidden.length && !metaExpanded) {
+      metaHost.append(el('button', {
+        class: 'read-meta-more',
+        onclick: () => { metaExpanded = true; renderMeta(); }
+      }, `+${hidden.length}`));
+    } else if (metaExpanded) {
+      metaHost.append(...hidden.map((text) => el('span', {}, text)));
+      metaHost.append(el('button', {
+        class: 'read-meta-more',
+        onclick: () => { metaExpanded = false; renderMeta(); }
+      }, '收起'));
+    }
   }
+  renderMeta();
 
   // ---------- 正文 ----------
+  const texts = items.filter((i) => i.type === 'text');
+  const firstText = texts[0] ? texts[0].text.trim() : '';
+  const titleCandidate = texts.length > 1
+    && firstText.length <= 24
+    && !/[。！？!?…]$/.test(firstText)
+    ? firstText
+    : null;
+  const ledeCandidate = !titleCandidate
+    && texts.length > 1
+    && firstText.length >= 40
+    ? firstText
+    : null;
+
   const body = el('div', { class: 'read-body' });
   let firstParagraph = true;
   let heroSkipped = !hero;
@@ -79,9 +111,14 @@ export async function renderRead(root, dateISO) {
       body.append(figure(item));
       continue;
     }
-    const p = el('p', { class: firstParagraph ? 'read-lede' : '' }, item.text);
+    if (firstParagraph && titleCandidate) {
+      body.append(el('h2', { class: 'read-title' }, item.text.trim()));
+    } else if (firstParagraph && ledeCandidate) {
+      body.append(el('p', { class: 'read-lede' }, item.text));
+    } else {
+      body.append(el('p', {}, item.text));
+    }
     firstParagraph = false;
-    body.append(p);
   }
 
   // 只有照片没有文字

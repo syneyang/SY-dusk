@@ -609,3 +609,24 @@ body.reading #view { padding-bottom: 40px; }
   color: var(--ink-soft); font-size: 11px; font-family: inherit;
 }
 .cover-btn.on { color: var(--dawn); }
+
+/* ---------- 读模式：标题与元信息 ---------- */
+
+.read-title {
+  font-family: "Songti SC", "STSong", Georgia, serif;
+  font-size: 27px;
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: .5px;
+  margin: 6px 0 20px;
+  color: var(--ink);
+}
+
+.read-meta-more {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--dawn);
+}
