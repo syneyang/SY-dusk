@@ -4,6 +4,7 @@ import * as db from './db.js';
 import { normalize, plainText, imageIds, charCount, placeName } from './model.js';
 import { el, toast, fullCN, weekdayCN, todayISO, confirmAction, APP_VERSION } from './util.js';
 import { lockNow } from './lock.js';
+import { getToken, enableSync, syncNow, syncStatus } from './sync.js';
 
 export async function renderSettings(root) {
   const journeyStart = await db.getMeta('journeyStart', '2027-01-01');
@@ -103,6 +104,62 @@ export async function renderSettings(root) {
     el('div', { class: 'hint' },
       '数据只存在这台设备的浏览器里。清空浏览器的网站数据会一起清掉，换手机之前一定先导出。')
   ));
+
+  // 云同步
+  const sync = await syncStatus();
+  const syncCard = el('div', { class: 'card' }, el('h3', {}, '云同步'));
+
+  if (!sync.enabled) {
+    syncCard.append(
+      el('div', { class: 'hint', style: 'margin-top:0' },
+        '把日记的密文备份到你自己的 Cloudflare。上传的是加密后的内容，服务器读不出来。'),
+      el('button', {
+        class: 'primary',
+        style: 'margin-top:10px',
+        onclick: async () => {
+          await enableSync();
+          await renderSettings(root);
+        }
+      }, '开启云同步')
+    );
+  } else {
+    const token = await getToken();
+    const statusLine = el('div', { class: 'hint', style: 'margin-top:8px' },
+      sync.lastAt ? `上次同步：${new Date(sync.lastAt).toLocaleString('zh-CN')}` : '还没同步过');
+
+    syncCard.append(
+      el('div', { class: 'hint', style: 'margin-top:0' }, '同步码（换设备时要用，别外传）：'),
+      el('div', { class: 'recovery-code', style: 'font-size:12px;letter-spacing:0;word-break:break-all' }, token),
+      el('button', {
+        class: 'ghost',
+        style: 'width:100%;padding:11px;margin-top:8px',
+        onclick: async () => {
+          try {
+            await navigator.clipboard.writeText(token);
+            toast('同步码已复制');
+          } catch {
+            toast('复制失败，手动选一下');
+          }
+        }
+      }, '复制同步码'),
+      el('button', {
+        class: 'primary',
+        style: 'margin-top:8px',
+        onclick: async () => {
+          statusLine.textContent = '正在同步…';
+          try {
+            const summary = await syncNow((text) => { statusLine.textContent = text; });
+            statusLine.textContent = `完成：上传 ${summary.pushed} 篇，拉取 ${summary.pulled} 篇，照片 ↑${summary.imagesUp} ↓${summary.imagesDown}`;
+          } catch (error) {
+            statusLine.textContent = '同步失败：' + (error.message || error);
+          }
+        }
+      }, '立即同步'),
+      statusLine,
+      el('div', { class: 'hint' }, '同步只上传密文；照片走同一套加密，服务器同样看不到。')
+    );
+  }
+  root.append(syncCard);
 
   // 隐私
   root.append(el('div', { class: 'card' },

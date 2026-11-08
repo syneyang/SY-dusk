@@ -66,6 +66,7 @@ async function withStore(name, mode, fn) {
 export async function getEntry(date) {
   const record = await withStore('entries', 'readonly', (s) => s.get(date));
   if (!record) return null;
+  if (record.deleted) return null;
   if (record.blob && masterKey) {
     try {
       return await decryptJSON(masterKey, record.blob);
@@ -83,18 +84,25 @@ export async function putEntry(entry) {
     date: entry.date,
     updatedAt: entry.updatedAt || Date.now(),
     blob,
+    deleted: 0,
     v: 2
   }));
 }
 
 export function deleteEntry(date) {
-  return withStore('entries', 'readwrite', (s) => s.delete(date));
+  // 留一个墓碑，别的设备才知道这篇被删了
+  return withStore('entries', 'readwrite', (s) => s.put({
+    date,
+    updatedAt: Date.now(),
+    deleted: 1
+  }));
 }
 
 export async function allEntries() {
   const records = await withStore('entries', 'readonly', (s) => s.getAll());
   const out = [];
   for (const record of records) {
+    if (record.deleted) continue;
     if (record.blob && masterKey) {
       try {
         out.push(await decryptJSON(masterKey, record.blob));
@@ -123,6 +131,33 @@ export async function needsMigration() {
   if (entries.some((r) => !r.blob)) return true;
   const images = await withStore('images', 'readonly', (s) => s.getAll());
   return images.some((r) => !r.blob || (r.thumb && !r.thumb.ct));
+}
+
+// ---------- 给同步用的原始记录（已经是密文，不解密） ----------
+
+export function rawEntries() {
+  return withStore('entries', 'readonly', (s) => s.getAll());
+}
+
+export function putRawEntry(record) {
+  return withStore('entries', 'readwrite', (s) => s.put(record));
+}
+
+export function rawImages() {
+  return withStore('images', 'readonly', (s) => s.getAll());
+}
+
+export function putRawImage(record) {
+  return withStore('images', 'readwrite', (s) => s.put(record));
+}
+
+export async function rawImage(id) {
+  return withStore('images', 'readonly', (s) => s.get(id));
+}
+
+export async function hasImage(id) {
+  const record = await withStore('images', 'readonly', (s) => s.get(id));
+  return !!record;
 }
 
 // ---------- 照片 ----------
