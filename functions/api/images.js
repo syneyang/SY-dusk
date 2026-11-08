@@ -19,18 +19,30 @@ export async function onRequest(context) {
 
   const id = url.searchParams.get('id');
 
+  const store = env.IMAGES || env.PHOTOS || null;
+
   if (request.method === 'PUT' && id) {
-    if (!env.IMAGES) return json({ ok: false, error: '还没有绑定 R2 存储桶', code: 'NO_R2' }, 501);
+    if (!store) return json({ ok: false, error: '还没有绑定照片存储（R2 或 KV）', code: 'NO_STORE' }, 501);
     const bytes = await request.arrayBuffer();
-    await env.IMAGES.put(`${account}/${id}`, bytes);
+    await store.put(`${account}/${id}`, bytes);
     return json({ ok: true });
   }
 
   if (request.method === 'GET' && id) {
-    if (!env.IMAGES) return json({ ok: false, error: '还没有绑定 R2 存储桶', code: 'NO_R2' }, 501);
-    const object = await env.IMAGES.get(`${account}/${id}`);
-    if (!object) return json({ ok: false, error: '没有这张照片' }, 404);
-    return new Response(object.body, {
+    if (!store) return json({ ok: false, error: '还没有绑定照片存储（R2 或 KV）', code: 'NO_STORE' }, 501);
+    const key = `${account}/${id}`;
+
+    if (env.IMAGES) {
+      const object = await env.IMAGES.get(key);
+      if (!object) return json({ ok: false, error: '没有这张照片' }, 404);
+      return new Response(object.body, {
+        headers: { 'content-type': 'application/octet-stream', 'cache-control': 'no-store' }
+      });
+    }
+
+    const buffer = await env.PHOTOS.get(key, 'arrayBuffer');
+    if (!buffer) return json({ ok: false, error: '没有这张照片' }, 404);
+    return new Response(buffer, {
       headers: { 'content-type': 'application/octet-stream', 'cache-control': 'no-store' }
     });
   }
