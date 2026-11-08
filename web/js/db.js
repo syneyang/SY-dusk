@@ -67,7 +67,7 @@ export async function getEntry(date) {
   const record = await withStore('entries', 'readonly', (s) => s.get(date));
   if (!record) return null;
   if (record.deleted) return null;
-  if (record.blob && masterKey) {
+  if (record.v === 2 && masterKey) {
     try {
       return await decryptJSON(masterKey, record.blob);
     } catch {
@@ -103,7 +103,7 @@ export async function allEntries() {
   const out = [];
   for (const record of records) {
     if (record.deleted) continue;
-    if (record.blob && masterKey) {
+    if (record.v === 2 && masterKey) {
       try {
         out.push(await decryptJSON(masterKey, record.blob));
       } catch {
@@ -128,9 +128,9 @@ export async function entryIndex() {
 
 export async function needsMigration() {
   const entries = await withStore('entries', 'readonly', (s) => s.getAll());
-  if (entries.some((r) => !r.blob)) return true;
+  if (entries.some((r) => r.v !== 2)) return true;
   const images = await withStore('images', 'readonly', (s) => s.getAll());
-  return images.some((r) => !r.blob || (r.thumb && !r.thumb.ct));
+  return images.some((r) => r.v !== 2);
 }
 
 // ---------- 给同步用的原始记录（已经是密文，不解密） ----------
@@ -184,10 +184,14 @@ export async function putImage(record) {
 export async function getImage(id) {
   const record = await withStore('images', 'readonly', (s) => s.get(id));
   if (!record) return null;
+  if (record.v !== 2) return record; // 旧明文，原样返回
 
-  if (!record.blob) return record; // 旧明文
-
-  const bytes = await decryptBytes(masterKey, record.blob);
+  let bytes;
+  try {
+    bytes = await decryptBytes(masterKey, record.blob);
+  } catch {
+    return null;
+  }
   const blob = new Blob([bytes], { type: record.mime || 'image/jpeg' });
   let thumb = null;
   if (record.thumb) {
@@ -205,7 +209,7 @@ export async function allImages() {
   const records = await withStore('images', 'readonly', (s) => s.getAll());
   const out = [];
   for (const record of records) {
-    if (!record.blob) {
+    if (record.v !== 2) {
       out.push(record);
       continue;
     }
