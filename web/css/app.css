@@ -340,3 +340,80 @@ button.danger { border: none; background: transparent; color: var(--danger); fon
 .suggest-name { font-size: 15px; }
 .suggest-meta { font-size: 11px; color: var(--ink-soft); }
 .suggest-empty { padding: 10px 12px; font-size: 12px; color: var(--ink-soft); }
+
+/* ---------- 地点选择器（底部弹出） ---------- */
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.38);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.sheet-backdrop.show { opacity: 1; }
+
+.sheet {
+  width: 100%;
+  max-width: 720px;
+  max-height: 88vh;
+  background: var(--paper);
+  border-radius: 20px 20px 0 0;
+  padding: 8px 16px calc(14px + var(--safe-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transform: translateY(16px);
+  transition: transform 0.22s ease;
+}
+.sheet-backdrop.show .sheet { transform: none; }
+
+.sheet-grip { width: 36px; height: 4px; border-radius: 2px; background: var(--hairline); margin: 4px auto 4px; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sheet-title { font-family: "Songti SC", "STSong", Georgia, serif; font-size: 19px; }
+.sheet-done {
+  border: none;
+  background: var(--dawn);
+  color: #fff;
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-family: inherit;
+}
+.sheet-search {
+  width: 100%;
+  border: 1px solid var(--hairline) !important;
+  background: var(--card);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 15px;
+  color: var(--ink);
+  outline: none;
+}
+.sheet-status { font-size: 12px; color: var(--ink-soft); min-height: 16px; }
+
+.place-list { overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; padding-bottom: 8px; }
+.place-group { font-size: 11px; color: var(--ink-soft); letter-spacing: 1px; padding: 8px 2px 4px; }
+.place-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 8px;
+  border: none;
+  background: none;
+  border-bottom: 1px solid var(--hairline);
+  text-align: left;
+  font-family: inherit;
+  color: var(--ink);
+  border-radius: 10px;
+}
+.place-item.chosen { background: var(--dawn-soft); }
+.place-item.taken { opacity: 0.45; }
+.place-text { min-width: 0; }
+.place-name { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.place-meta { font-size: 11px; color: var(--ink-soft); margin-top: 2px; }
+.place-mark { color: var(--dawn); font-size: 12px; white-space: nowrap; }

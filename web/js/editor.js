@@ -7,6 +7,7 @@ import {
 import {
   el, toast, debounce, todayISO, prevISO, weekdayCN, monthDayCN, fullCN, daysBetween
 } from './util.js';
+import { openPlacePicker } from './placepicker.js';
 
 let current = null;
 
@@ -59,20 +60,16 @@ export async function renderEditor(root, dateISO) {
 
   // ---------- 地点 ----------
   const placesChips = el('div', { class: 'chips' });
-  const placeInput = el('input', {
-    type: 'text',
-    placeholder: '+ 搜索地点，比如「丁桥」',
-    autocomplete: 'off',
-    onkeydown: (e) => {
-      if (e.key !== 'Enter') return;
-      e.preventDefault();
-      const value = e.target.value.trim();
-      if (value) addPlace({ name: value });
-      e.target.value = '';
-      clearSuggestions();
+  const addPlaceBtn = el('button', {
+    class: 'ghost',
+    style: 'padding:6px 12px;font-size:13px;margin-top:8px',
+    onclick: async () => {
+      const picked = await openPlacePicker({ existing: entry.places.map(placeName) });
+      if (!picked.length) return;
+      for (const place of picked) addPlace(place);
+      renderPlaces();
     }
-  });
-  const placeSuggest = el('div', { class: 'suggest' });
+  }, '＋ 添加地点');
 
   // ---------- 区域 ----------
   const regionChips = el('div', { class: 'chips' });
@@ -112,7 +109,6 @@ export async function renderEditor(root, dateISO) {
       renderRegions();
     }
     renderPlaces();
-    clearSuggestions();
     scheduleSave();
   }
 
@@ -149,50 +145,6 @@ export async function renderEditor(root, dateISO) {
   renderPlaces();
   renderRegions();
 
-  function clearSuggestions() {
-    placeSuggest.innerHTML = '';
-    placeSuggest.classList.remove('open');
-  }
-
-  let searchSeq = 0;
-  const runSearch = debounce(async (query) => {
-    const q = query.trim();
-    if (q.length < 2) {
-      clearSuggestions();
-      return;
-    }
-    const seq = ++searchSeq;
-    try {
-      const response = await fetch(`/api/places?q=${encodeURIComponent(q)}`);
-      const data = await response.json();
-      if (seq !== searchSeq) return;
-      if (!data.ok) {
-        if (data.code === 'NO_KEY') clearSuggestions();
-        return;
-      }
-      placeSuggest.innerHTML = '';
-      const list = (data.places || []).slice(0, 6);
-      if (!list.length) {
-        placeSuggest.append(el('div', { class: 'suggest-empty' }, '没找到，直接回车当手写地点'));
-      }
-      for (const place of list) {
-        placeSuggest.append(el('button', {
-          class: 'suggest-item',
-          onclick: () => { addPlace(place); placeInput.value = ''; }
-        },
-          el('span', { class: 'suggest-name' }, place.name),
-          el('span', { class: 'suggest-meta' }, metaLine(place))
-        ));
-      }
-      placeSuggest.classList.add('open');
-    } catch {
-      clearSuggestions();
-    }
-  }, 300);
-
-  placeInput.addEventListener('input', (e) => {
-    runSearch(e.target.value);
-  });
 
   // ---------- 正文 ----------
   const editor = el('div', {
@@ -286,7 +238,7 @@ export async function renderEditor(root, dateISO) {
     weatherHint,
     el('div', { class: 'row', style: 'align-items:flex-start' },
       el('span', { class: 'label' }, '地点'),
-      el('div', { style: 'flex:1' }, placesChips, placeInput, placeSuggest)
+      el('div', { style: 'flex:1' }, placesChips, addPlaceBtn)
     ),
     el('div', { class: 'row', style: 'align-items:flex-start' },
       el('span', { class: 'label' }, '区域'),
