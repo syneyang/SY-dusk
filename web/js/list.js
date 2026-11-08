@@ -1,14 +1,14 @@
-// 时光：全部日记，按「年-月」分组倒序。
+// 时光：按年月分组的列表，可搜索。
 
 import * as db from './db.js';
 import { normalize, firstLine, imageIds, charCount, plainText, placeName } from './model.js';
-import { el, monthTitle, weekdayCN, toast } from './util.js';
+import { el, monthTitle, weekdayCN, debounce } from './util.js';
 
 export async function renderList(root) {
   const entries = (await db.allEntries()).map(normalize).sort((a, b) => b.date.localeCompare(a.date));
 
   root.innerHTML = '';
-  root.append(el('h1', { style: 'font-size:26px;margin:4px 0 2px' }, '时光'));
+  root.append(el('h1', { class: 'page-title' }, '时光'));
 
   if (!entries.length) {
     root.append(el('div', { class: 'empty' },
@@ -20,70 +20,82 @@ export async function renderList(root) {
     return;
   }
 
-  root.append(el('div', { class: 'hint', style: 'margin-top:0' }, `一共 ${entries.length} 天有记录`));
+  const search = el('input', {
+    class: 'tl-search',
+    type: 'search',
+    placeholder: '搜一段记忆：字、地点、天气…',
+    autocomplete: 'off'
+  });
+  const stat = el('div', { class: 'tl-stat' }, `一共 ${entries.length} 天有记录`);
+  const listHost = el('div', {});
 
-  let lastMonth = '';
-  for (const entry of entries) {
-    const month = entry.date.slice(0, 7);
-    if (month !== lastMonth) {
-      lastMonth = month;
-      root.append(el('div', { class: 'list-month' }, monthTitle(month)));
+  root.append(search, stat, listHost);
+
+  const render = (query) => {
+    const q = (query || '').trim().toLowerCase();
+    const hits = q
+      ? entries.filter((entry) =>
+          plainText(entry).toLowerCase().includes(q)
+          || (entry.places || []).map(placeName).join(' ').toLowerCase().includes(q)
+          || (entry.regions || []).map(placeName).join(' ').toLowerCase().includes(q)
+          || (entry.weather || '').toLowerCase().includes(q))
+      : entries;
+
+    stat.textContent = q ? `找到 ${hits.length} 天` : `一共 ${entries.length} 天有记录`;
+    listHost.innerHTML = '';
+
+    if (!hits.length) {
+      listHost.append(el('div', { class: 'empty' }, '没找到。', el('br'), '换个词，或者清空搜索框。'));
+      return;
     }
-    root.append(await renderRow(entry));
-  }
+
+    let lastMonth = '';
+    for (const entry of hits) {
+      const month = entry.date.slice(0, 7);
+      if (month !== lastMonth) {
+        lastMonth = month;
+        const count = hits.filter((e) => e.date.startsWith(month)).length;
+        listHost.append(el('div', { class: 'tl-month' },
+          el('span', {}, monthTitle(month)),
+          el('span', { class: 'tl-month-count' }, `${count} 篇`)
+        ));
+      }
+      listHost.append(renderRow(entry));
+    }
+  };
+
+  search.addEventListener('input', debounce((e) => render(e.target.value), 200));
+  render('');
 }
 
-async function renderRow(entry) {
+function renderRow(entry) {
   const day = Number(entry.date.slice(8, 10));
-  const title = firstLine(entry) || (imageIds(entry).length ? '（只有照片）' : '（空）');
-  const meta = [];
+  const title = firstLine(entry) || (imageIds(entry).length ? '只有照片的一天' : '空白的一天');
 
+  const meta = [`${day}日 ${weekdayCN(entry.date)}`];
   if (entry.weather) meta.push(entry.weather);
-  if (entry.places?.length) meta.push(entry.places.map(placeName).join(' · '));
+  const images = imageIds(entry).length;
+  if (images) meta.push(`${images} 张`);
   const chars = charCount(entry);
   if (chars) meta.push(`${chars} 字`);
-  if (imageIds(entry).length) meta.push(`${imageIds(entry).length} 张照片`);
 
-  let thumb = null;
+  const thumbHost = el('div', { class: 'tl-thumb-slot' });
   const ids = imageIds(entry);
   if (ids.length) {
-    const record = await db.getImage(ids[0]);
-    if (record) {
+    db.getImage(ids[0]).then((record) => {
+      if (!record) return;
       const url = URL.createObjectURL(record.thumb || record.blob);
-      thumb = el('img', { class: 'thumb', src: url, alt: '', loading: 'lazy' });
-      // 简单起见不回收，页面切换时整体释放
+      thumbHost.append(el('img', { class: 'tl-thumb', src: url, alt: '', loading: 'lazy' }));
       setTimeout(() => URL.revokeObjectURL(url), 60000);
-    }
+    });
   }
 
-  return el('a', { class: 'entry-row', href: `#/read/${entry.date}` },
-    el('div', { class: 'num' }, String(day), el('small', {}, weekdayCN(entry.date))),
-    el('div', { class: 'body' },
-      el('div', { class: 'title' }, title),
-      el('div', { class: 'meta' }, meta.join(' · '))
+  return el('a', { class: 'tl-row', href: `#/read/${entry.date}` },
+    el('div', { class: 'tl-main' },
+      el('div', { class: 'tl-title' }, title),
+      el('div', { class: 'tl-meta' }, ...meta.map((text, index) =>
+        el('span', { class: index === 1 && entry.weather ? 'tl-weather' : '' }, text)))
     ),
-    thumb
+    thumbHost
   );
 }
-
-export async function renderSearch(root, query) {
-  const all = (await db.allEntries()).map(normalize);
-  const q = (query || '').trim().toLowerCase();
-  const hits = all.filter((entry) => {
-    if (!q) return false;
-    return (
-      plainText(entry).toLowerCase().includes(q) ||
-      (entry.places || []).join(' ').toLowerCase().includes(q) ||
-      (entry.regions || []).join(' ').toLowerCase().includes(q) ||
-      (entry.weather || '').toLowerCase().includes(q)
-    );
-  });
-  root.innerHTML = '';
-  root.append(el('div', { class: 'hint' }, `搜索「${query}」：找到 ${hits.length} 天`));
-  for (const entry of hits.sort((a, b) => b.date.localeCompare(a.date))) {
-    root.append(await renderRow(entry));
-  }
-  return hits.length;
-}
-
-export { toast };

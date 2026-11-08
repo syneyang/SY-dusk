@@ -25,6 +25,7 @@ export function normalize(entry) {
   entry.places = Array.isArray(entry.places) ? entry.places : [];
   entry.regions = Array.isArray(entry.regions) ? entry.regions : [];
   entry.blocks = Array.isArray(entry.blocks) ? entry.blocks : [];
+  entry.coverImageId = entry.coverImageId || null;
   return entry;
 }
 

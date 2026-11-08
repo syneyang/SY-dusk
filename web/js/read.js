@@ -1,4 +1,4 @@
-// 读：把一天的结构自动排成杂志版。用户什么都不用管。
+// 读：把一天自动排成杂志版。头图默认没有，你自己指定。
 
 import * as db from './db.js';
 import { normalize, plainText, placeName } from './model.js';
@@ -14,7 +14,7 @@ export async function renderRead(root, dateISO) {
   const urls = [];
   root.innerHTML = '';
 
-  // 拆成「段落」和「图片（带时间）」两种块
+  // 拆成段落 / 图片
   const items = [];
   for (const block of entry.blocks) {
     if (block.type === 'image') {
@@ -22,7 +22,7 @@ export async function renderRead(root, dateISO) {
       if (!record) continue;
       const url = URL.createObjectURL(record.blob);
       urls.push(url);
-      items.push({ type: 'image', url, at: record.createdAt || null });
+      items.push({ type: 'image', id: block.imageId, url, at: record.createdAt || null });
     } else if (block.type === 'text') {
       const text = block.text.trim();
       if (text) items.push({ type: 'text', text });
@@ -30,9 +30,7 @@ export async function renderRead(root, dateISO) {
   }
 
   const images = items.filter((i) => i.type === 'image');
-  const paragraphs = items.filter((i) => i.type === 'text');
-  const hero = images[0] || null;
-  const flowImages = images.slice(1);
+  const hero = entry.coverImageId ? images.find((i) => i.id === entry.coverImageId) : null;
 
   const meta = [
     entry.weather,
@@ -72,14 +70,13 @@ export async function renderRead(root, dateISO) {
 
   // ---------- 正文 ----------
   const body = el('div', { class: 'read-body' });
-  let usedHero = false;
   let firstParagraph = true;
+  let heroSkipped = !hero;
 
-  // 按原始顺序走：段落正常排，图片当作插图（第一张已经变成头图，跳过）
   for (const item of items) {
     if (item.type === 'image') {
-      if (!usedHero && hero && item === hero) { usedHero = true; continue; }
-      body.append(figure(item, entry));
+      if (!heroSkipped && hero && item.id === hero.id) { heroSkipped = true; continue; }
+      body.append(figure(item));
       continue;
     }
     const p = el('p', { class: firstParagraph ? 'read-lede' : '' }, item.text);
@@ -87,10 +84,10 @@ export async function renderRead(root, dateISO) {
     body.append(p);
   }
 
-  // 只有照片没有文字：网格
-  if (!paragraphs.length && flowImages.length) {
+  // 只有照片没有文字
+  if (!items.some((i) => i.type === 'text') && images.length) {
     body.append(el('div', { class: 'read-grid' },
-      ...flowImages.map((image) => el('img', { src: image.url, alt: '' }))
+      ...images.map((image) => el('img', { src: image.url, alt: '' }))
     ));
   }
 
@@ -103,24 +100,35 @@ export async function renderRead(root, dateISO) {
     el('a', { href: `#/entry/${dateISO}`, class: 'read-edit' }, '编辑这篇 ›')
   ));
 
-  // 清理 objectURL
   const cleanup = () => urls.forEach(URL.revokeObjectURL);
   window.addEventListener('hashchange', cleanup, { once: true });
 
   function figure(image) {
+    const isCover = entry.coverImageId === image.id;
+    const coverBtn = el('button', {
+      class: 'cover-btn' + (isCover ? ' on' : ''),
+      onclick: async () => {
+        const fresh = normalize(await db.getEntry(dateISO));
+        fresh.coverImageId = isCover ? null : image.id;
+        fresh.updatedAt = Date.now();
+        await db.putEntry(fresh);
+        toast(isCover ? '已取消封面' : '设为封面');
+        cleanup();
+        renderRead(root, dateISO);
+      }
+    }, isCover ? '✓ 封面' : '设为封面');
+
     return el('figure', { class: 'read-figure' },
       el('img', { src: image.url, alt: '', loading: 'lazy' }),
-      el('figcaption', {}, captionFor(image, entry, dateISO))
+      el('figcaption', {}, el('span', {}, captionFor(image, entry)), coverBtn)
     );
   }
 }
 
-function captionFor(image, entry, dateISO) {
+function captionFor(image, entry) {
   const time = image.at
     ? new Date(image.at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
     : '';
   const place = entry.places.map(placeName)[0] || '';
   return [time, place].filter(Boolean).join(' · ') || '照片';
 }
-
-export { toast };

@@ -560,3 +560,52 @@ body.reading #view { padding-bottom: 40px; }
   text-decoration: none;
 }
 .read-back { font-size: 20px; padding: 0 10px; }
+
+/* ---------- 时光列表 ---------- */
+
+.page-title { font-family: "Songti SC", "STSong", Georgia, serif; font-size: 26px; margin: 4px 0 12px; }
+
+.tl-search {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid var(--hairline);
+  background: transparent;
+  padding: 10px 2px;
+  font-size: 15px;
+  color: var(--ink);
+  outline: none;
+}
+.tl-stat { font-size: 12px; color: var(--ink-soft); margin-top: 10px; }
+
+.tl-month {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin: 26px 0 2px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 13px; color: var(--dusk); letter-spacing: .6px;
+}
+.tl-month-count { color: var(--ink-soft); font-size: 11px; letter-spacing: 0; }
+
+.tl-row {
+  display: flex; gap: 14px; align-items: center;
+  padding: 15px 2px;
+  border-bottom: 1px solid var(--hairline);
+  text-decoration: none; color: inherit;
+}
+.tl-main { flex: 1; min-width: 0; }
+.tl-title {
+  font-size: 16px; line-height: 1.55; color: var(--ink);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.tl-meta { margin-top: 7px; font-size: 12px; color: var(--ink-soft); display: flex; gap: 10px; flex-wrap: wrap; }
+.tl-weather { color: var(--dawn); }
+.tl-thumb-slot { width: 64px; height: 64px; flex: none; }
+.tl-thumb { width: 64px; height: 64px; border-radius: 10px; object-fit: cover; display: block; background: var(--hairline); }
+
+/* ---------- 封面按钮 ---------- */
+
+.read-figure figcaption { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.cover-btn {
+  border: none; background: none; padding: 2px 0;
+  color: var(--ink-soft); font-size: 11px; font-family: inherit;
+}
+.cover-btn.on { color: var(--dawn); }
