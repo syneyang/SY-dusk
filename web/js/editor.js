@@ -111,10 +111,31 @@ export async function renderEditor(root, dateISO) {
     });
   }
 
-  function addPlace(place) {
+  async function addPlace(place) {
     const name = placeName(place).trim();
     if (!name) return;
-    if (!entry.places.some((p) => placeName(p) === name)) {
+
+    // 从「最近去过」里挑的老地点没存坐标，补查一次，不然反查不到区县
+    if (place.lat == null || place.lng == null) {
+      const found = await lookupPlace(name);
+      if (found) {
+        place = {
+          ...place,
+          district: place.district || found.district || '',
+          lat: found.lat,
+          lng: found.lng
+        };
+      }
+    }
+
+    const existing = entry.places.find((p) => placeName(p) === name);
+    if (existing) {
+      if (existing.lat == null && place.lat != null) {
+        existing.lat = place.lat;
+        existing.lng = place.lng;
+        existing.district = existing.district || place.district || '';
+      }
+    } else {
       entry.places.push({ name, district: place.district || '', lat: place.lat ?? null, lng: place.lng ?? null });
     }
     if (place.district) {
@@ -123,6 +144,19 @@ export async function renderEditor(root, dateISO) {
     }
     refineRegion(place);
     scheduleSave();
+  }
+
+  /** 只知道名字时，用高德搜一次补坐标和区县。 */
+  async function lookupPlace(name) {
+    try {
+      const response = await fetch(`/api/places?q=${encodeURIComponent(name)}`);
+      const data = await response.json();
+      if (!data.ok || !Array.isArray(data.places) || !data.places.length) return null;
+      const exact = data.places.find((p) => p.name === name) || data.places[0];
+      return exact && exact.lat != null ? exact : null;
+    } catch {
+      return null;
+    }
   }
 
   async function refineRegion(place) {
