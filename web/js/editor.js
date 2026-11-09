@@ -403,11 +403,13 @@ export async function renderEditor(root, dateISO) {
   }
 
   async function doSave() {
-    entry.blocks = entry.blocks.filter((b) => (b.type === 'image') || (b.text && b.text.trim()));
-    if (!entry.blocks.length && !entry.places.length && !entry.regions.length && !entry.weather && !entry.coverImageId) return;
+    // 注意：只在存盘时过滤空段落，不能改动 entry.blocks 本身，
+    // 否则「刚点 ＋段落、还没打字」的空块会被永久丢掉。
+    const blocksToSave = entry.blocks.filter((b) => b.type === 'image' || (b.text && b.text.trim()));
+    if (!blocksToSave.length && !entry.places.length && !entry.regions.length && !entry.weather && !entry.coverImageId) return;
     entry.updatedAt = Date.now();
     try {
-      await db.putEntry(entry);
+      await db.putEntry({ ...entry, blocks: blocksToSave });
       counter.textContent = `${charCount(entry)} 字 · ${imageCount(entry)} 张`;
       saveHint.lastChild.textContent = '已保存 ' + new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
     } catch (error) {
