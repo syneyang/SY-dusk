@@ -30,7 +30,17 @@ export async function renderRead(root, dateISO) {
   }
 
   const images = items.filter((i) => i.type === 'image');
-  const hero = entry.coverImageId ? images.find((i) => i.id === entry.coverImageId) : null;
+  let hero = entry.coverImageId ? images.find((i) => i.id === entry.coverImageId) : null;
+
+  // 封面可能是一张不在正文里的照片
+  if (entry.coverImageId && !hero) {
+    const record = await db.getImage(entry.coverImageId);
+    if (record) {
+      const url = URL.createObjectURL(record.blob);
+      urls.push(url);
+      hero = { type: 'image', id: entry.coverImageId, url, at: record.createdAt || null, coverOnly: true };
+    }
+  }
 
   const places = entry.places.map(placeName).filter(Boolean);
   const regions = entry.regions.map(placeName).filter(Boolean);

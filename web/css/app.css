@@ -742,3 +742,58 @@ body.locked #view { padding-bottom: 20px; }
 }
 .key:active { background: var(--dawn-soft); border-color: var(--dawn); transform: scale(0.96); }
 .key-placeholder { width: 68px; height: 68px; }
+
+/* ---------- 块编辑器 ---------- */
+
+.blocks { margin-top: 18px; display: flex; flex-direction: column; gap: 10px; }
+
+.blk {
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  padding: 10px 12px 6px;
+}
+.blk-text {
+  width: 100%;
+  border: none;
+  background: transparent;
+  resize: none;
+  overflow: hidden;
+  font-size: 16.5px;
+  line-height: 1.85;
+  color: var(--ink);
+  font-family: inherit;
+  outline: none;
+  min-height: 54px;
+  padding: 0;
+}
+.blk-img { width: 100%; border-radius: 10px; display: block; background: var(--hairline); }
+
+.blk-bar { display: flex; gap: 4px; justify-content: flex-end; margin-top: 4px; }
+.blk-btn {
+  border: none;
+  background: none;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-family: inherit;
+  padding: 5px 8px;
+  border-radius: 8px;
+}
+.blk-btn:active { background: var(--dawn-soft); }
+.blk-btn.danger { color: var(--danger); }
+.blk-btn:disabled { opacity: 0.28; }
+
+/* ---------- 封面 ---------- */
+
+.cover-slot { margin-top: 14px; }
+.cover-empty {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 14px;
+  border: 1px dashed var(--hairline);
+  border-radius: 12px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.cover-set { display: flex; gap: 12px; align-items: center; }
+.cover-thumb img { width: 64px; height: 64px; border-radius: 10px; object-fit: cover; display: block; background: var(--hairline); }
+.cover-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; }

@@ -18,7 +18,7 @@ function setTab(path) {
 }
 
 async function route() {
-  flushSave();
+  await flushSave();
   cleanupEditor();
 
   const hash = location.hash || '#/today';
