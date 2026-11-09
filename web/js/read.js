@@ -51,11 +51,13 @@ export async function renderRead(root, dateISO) {
   const places = entry.places.map(placeName).filter(Boolean);
   const regions = dedupeRegions(entry.regions.map(placeName));
 
+  const metaList = [entry.weather, ...places, ...regions].filter(Boolean);
+
   // ---------- 浮动返回 ----------
   root.append(el('div', { class: 'read-bar' },
     el('a', { class: 'read-back', href: '#/list', 'aria-label': '返回' }, '‹'),
     el('div', { style: 'display:flex;gap:8px' },
-      el('button', { class: 'read-edit-top', onclick: () => openMenu(items, meta, dateISO) }, '⋯'),
+      el('button', { class: 'read-edit-top', onclick: () => openMenu(items, metaList, dateISO) }, '⋯'),
       el('a', { class: 'read-edit-top', href: `#/entry/${dateISO}` }, '编辑')
     )
   ));
