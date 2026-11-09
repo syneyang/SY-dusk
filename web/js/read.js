@@ -315,10 +315,9 @@ async function shareImage(entry, dateISO, style) {
       { type: 'image/jpeg' }
     ));
 
-    if (navigator.canShare && navigator.canShare({ files })) {
-      await navigator.share({ files });
-      return;
-    }
+    // 微信不吃网页分享出来的文件，所以先给预览，让用户长按存相册
+    showPreview(blobs, dateISO, files);
+    return;
 
     for (const file of files) {
       const url = URL.createObjectURL(file);
@@ -333,5 +332,44 @@ async function shareImage(entry, dateISO, style) {
     toast('已保存');
   } catch (error) {
     toast('生成失败：' + (error.message || error));
+  }
+}
+
+// ---------- 长图预览 ----------
+
+function showPreview(blobs, dateISO, files) {
+  const urls = blobs.map((blob) => URL.createObjectURL(blob));
+
+  const bar = el('div', { class: 'preview-bar' },
+    el('button', { class: 'preview-btn', onclick: close }, '完成'),
+    el('div', { class: 'preview-title' }, `长按图片保存到相册`),
+    el('button', {
+      class: 'preview-btn',
+      onclick: async () => {
+        if (navigator.canShare && navigator.canShare({ files })) {
+          try {
+            await navigator.share({ files });
+          } catch {}
+        } else {
+          toast('这台设备不支持系统分享，请长按图片保存');
+        }
+      }
+    }, '分享')
+  );
+
+  const body = el('div', { class: 'preview-body' },
+    ...urls.map((url) => el('img', { class: 'preview-img', src: url, alt: '' }))
+  );
+
+  const backdrop = el('div', { class: 'preview-backdrop', onclick: (event) => { if (event.target === backdrop) close(); } },
+    bar,
+    body
+  );
+
+  document.body.append(backdrop);
+
+  function close() {
+    backdrop.remove();
+    urls.forEach(URL.revokeObjectURL);
   }
 }

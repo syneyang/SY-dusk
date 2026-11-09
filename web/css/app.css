@@ -1069,3 +1069,44 @@ button.set-row:active { background: var(--dawn-soft); }
 }
 .share-item:last-child { border-bottom: none; }
 .share-item:active { background: var(--dawn-soft); }
+
+/* ---------- 长图预览 ---------- */
+
+.preview-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(18, 16, 14, 0.96);
+  display: flex;
+  flex-direction: column;
+}
+.preview-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px;
+  color: #f2ece2;
+}
+.preview-title { font-size: 12px; opacity: 0.7; }
+.preview-btn {
+  border: none;
+  background: none;
+  color: #f2ece2;
+  font-family: inherit;
+  font-size: 15px;
+  padding: 6px 4px;
+}
+.preview-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 12px calc(24px + env(safe-area-inset-bottom, 0px));
+}
+.preview-img {
+  display: block;
+  width: 100%;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  background: #fff;
+}
