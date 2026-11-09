@@ -11,25 +11,168 @@ let lockTimer = null;
 export async function requireUnlock(root) {
   document.body.classList.add('locked');
 
-  const session = await auth.getSession();
-  const legacyVault = await db.getMeta('vault', null);
+  const localLock = await db.getMeta('localLock', null);
 
-  if (legacyVault && !session) {
-    const masterRaw = await legacyPasscode(root, legacyVault);
-    if (!masterRaw) return false;
-    const ok = await registerScreen(root, masterRaw, { upgrading: true });
-    if (!ok) return false;
-  } else if (session) {
-    const ok = await loginScreen(root, session);
-    if (!ok) return false;
-  } else {
-    const ok = await registerScreen(root, crypto.randomBytes(32), { upgrading: false });
-    if (!ok) return false;
+  // 首选：本机 6 位密码，快、不联网
+  if (localLock) {
+    const masterRaw = await passcodeGate(root, localLock);
+    if (masterRaw) {
+      await finish(masterRaw);
+      return true;
+    }
+    // 忘了 → 落到账号找回
   }
 
-  if (await db.needsMigration()) await migrate(root);
-  document.body.classList.remove('locked');
+  // 没有 6 位，或者忘了：用邮箱 + 密码（也是同步用的那个账号）
+  const masterRaw = await accountGate(root);
+  if (!masterRaw) return false;
+
+  if (!(await db.getMeta('localLock', null))) {
+    await ensureLocalPasscode(root, masterRaw);
+  }
+  await finish(masterRaw);
   return true;
+}
+
+async function finish(masterRaw) {
+  db.setMasterKey(await crypto.importMasterKey(masterRaw));
+  if (await db.needsMigration()) await migrate(document.getElementById('view'));
+  document.body.classList.remove('locked');
+}
+
+// ---------- 6 位密码 ----------
+
+const PASSCODE_ITERATIONS = 200000;
+
+function passcodeScreen(root, { title, subtitle, confirm = false, forgot = false }) {
+  return new Promise((resolve) => {
+    let stage = 'first';
+    let firstCode = '';
+    let value = '';
+
+    root.innerHTML = '';
+
+    const dots = el('div', { class: 'lock-dots' });
+    const titleNode = el('div', { class: 'lock-title' }, title);
+    const subNode = el('div', { class: 'lock-note' }, subtitle);
+
+    const keypad = el('div', { class: 'keypad' });
+    for (const key of ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫']) {
+      if (key === '') {
+        keypad.append(el('div', { class: 'key-placeholder' }));
+        continue;
+      }
+      keypad.append(el('button', { class: 'key', type: 'button', onclick: () => press(key) }, key));
+    }
+
+    root.append(el('div', { class: 'lock' },
+      el('div', { class: 'lock-logo' }, '朝夕'),
+      titleNode,
+      subNode,
+      dots,
+      keypad,
+      forgot
+        ? el('button', { class: 'lock-link', onclick: () => resolve(null) }, '忘了 6 位密码？用邮箱找回')
+        : null
+    ));
+
+    function renderDots() {
+      dots.innerHTML = '';
+      for (let i = 0; i < 6; i++) dots.append(el('span', { class: i < value.length ? 'on' : '' }));
+    }
+    renderDots();
+
+    function press(key) {
+      if (key === '⌫') value = value.slice(0, -1);
+      else if (value.length < 6) value += key;
+      renderDots();
+      if (value.length === 6) setTimeout(submit, 90);
+    }
+
+    function submit() {
+      if (value.length !== 6) return;
+      if (!confirm) {
+        resolve(value);
+        return;
+      }
+      if (stage === 'first') {
+        firstCode = value;
+        value = '';
+        stage = 'second';
+        renderDots();
+        titleNode.textContent = '再输一次';
+        subNode.textContent = '确认一下刚刚的密码';
+        return;
+      }
+      if (value === firstCode) {
+        resolve(value);
+      } else {
+        toast('两次不一样，重来');
+        stage = 'first';
+        firstCode = '';
+        value = '';
+        renderDots();
+        titleNode.textContent = title;
+        subNode.textContent = subtitle;
+      }
+    }
+  });
+}
+
+async function passcodeGate(root, localLock) {
+  for (;;) {
+    const code = await passcodeScreen(root, {
+      title: '解锁',
+      subtitle: '输入 6 位密码',
+      forgot: true
+    });
+    if (code === null) return null;
+
+    try {
+      const kek = await crypto.deriveKEK(code, crypto.fromB64(localLock.salt), localLock.iterations);
+      return await crypto.unwrapMasterKey(localLock.wrapped, kek);
+    } catch {
+      toast('密码不对');
+    }
+  }
+}
+
+async function ensureLocalPasscode(root, masterRaw) {
+  const code = await passcodeScreen(root, {
+    title: '再设一个 6 位密码',
+    subtitle: '以后打开 App 用它，不用每次都输邮箱密码。',
+    confirm: true
+  });
+
+  const salt = crypto.randomBytes(16);
+  const kek = await crypto.deriveKEK(code, salt, PASSCODE_ITERATIONS);
+  const wrapped = await crypto.wrapMasterKey(masterRaw, kek);
+  await db.setMeta('localLock', {
+    salt: crypto.toB64(salt),
+    iterations: PASSCODE_ITERATIONS,
+    wrapped,
+    createdAt: Date.now()
+  });
+}
+
+// ---------- 账号 ----------
+
+async function accountGate(root) {
+  const session = await auth.getSession();
+  if (session) return await loginScreen(root, session);
+
+  const vault = await db.getMeta('vault', null);
+  if (vault) {
+    const masterRaw = await legacyPasscode(root, vault);
+    if (masterRaw) {
+      // 老用户：先给日记建个账号，再继续
+      const created = await registerScreen(root, masterRaw, { upgrading: true });
+      if (created) return masterRaw;
+      return null;
+    }
+  }
+
+  return await registerScreen(root, crypto.randomBytes(32), { upgrading: false });
 }
 
 export function lockNow() {
@@ -53,9 +196,10 @@ export function startAutoLock() {
 // ---------- 登录 ----------
 
 function loginScreen(root, session) {
+  let master = null;
   return formScreen(root, {
-    title: '解锁',
-    subtitle: session.email,
+    title: '输入账号密码',
+    subtitle: `${session.email} · 用来同步和找回 6 位密码`,
     fields: [
       { key: 'password', label: '密码', type: 'password', placeholder: '至少 8 位', autofocus: true }
     ],
@@ -63,9 +207,9 @@ function loginScreen(root, session) {
     footer: el('button', { class: 'lock-link', onclick: () => switchAccount(root) }, '换一个账号'),
     submit: async ({ password }) => {
       const { masterRaw } = await auth.login(session.email, password);
-      db.setMasterKey(await crypto.importMasterKey(masterRaw));
+      master = masterRaw;
     }
-  });
+  }).then((ok) => (ok ? master : null));
 }
 
 async function switchAccount(root) {
@@ -76,6 +220,7 @@ async function switchAccount(root) {
 // ---------- 注册 ----------
 
 function registerScreen(root, masterRaw, { upgrading }) {
+  let master = null;
   return formScreen(root, {
     title: upgrading ? '给日记加一个账号' : '创建账号',
     subtitle: upgrading
@@ -95,15 +240,16 @@ function registerScreen(root, masterRaw, { upgrading }) {
       if (password !== confirm) throw new Error('两次密码不一样');
 
       await auth.register(email, password, masterRaw);
-      db.setMasterKey(await crypto.importMasterKey(masterRaw));
       await db.deleteMeta('vault');
+      master = masterRaw;
     }
-  });
+  }).then((ok) => (ok ? master : null));
 }
 
 // ---------- 已有账号：输入邮箱登录 ----------
 
 function loginWithEmail(root) {
+  let master = null;
   return formScreen(root, {
     title: '登录',
     subtitle: '输入注册时的邮箱和密码',
@@ -115,9 +261,9 @@ function loginWithEmail(root) {
     footer: el('button', { class: 'lock-link', onclick: () => location.reload() }, '没有账号？去注册'),
     submit: async ({ email, password }) => {
       const { masterRaw } = await auth.login(email, password);
-      db.setMasterKey(await crypto.importMasterKey(masterRaw));
+      master = masterRaw;
     }
-  });
+  }).then((ok) => (ok ? master : null));
 }
 
 // ---------- 旧密码锁 → 升级 ----------
