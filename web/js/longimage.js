@@ -196,8 +196,10 @@ export async function renderDayImage(entry, dateISO, styleName = 'magazine') {
         ctx.font = block.font;
         ctx.fillStyle = block.color;
         ctx.textBaseline = 'top';
+        const size = fontSizeOf(block.font);
+        const offset = Math.max(0, (block.lineHeight - size) / 2);
         block.lines.forEach((line, index) => {
-          ctx.fillText(line, PAD, y + index * block.lineHeight + (block.lineHeight - parseInt(block.font, 10)) / 2);
+          ctx.fillText(line, PAD, y + index * block.lineHeight + offset);
         });
       } else if (block.type === 'rule') {
         ctx.fillStyle = style.soft + '55';
@@ -220,6 +222,11 @@ export async function renderDayImage(entry, dateISO, styleName = 'magazine') {
   }
 
   return blobs;
+}
+
+function fontSizeOf(font) {
+  const match = String(font).match(/(\d+(?:\.\d+)?)px/);
+  return match ? parseFloat(match[1]) : 32;
 }
 
 function roundRect(ctx, x, y, width, height, radius) {
