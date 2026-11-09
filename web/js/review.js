@@ -39,7 +39,7 @@ export async function renderReview(root) {
     });
   }
 
-  root.append(switcher, body);
+  root.append(switcher, renderStats(), body);
 
   function render() {
     body.innerHTML = '';
@@ -204,6 +204,42 @@ export async function renderReview(root) {
       ));
     }
     return wrap;
+  }
+
+  function renderStats() {
+    const daySet = new Set(entries.map((e) => e.date));
+    const sorted = [...daySet].sort();
+    let longest = 0;
+    let run = 0;
+    let prev = null;
+    for (const iso of sorted) {
+      run = prev && (dateOf(iso) - dateOf(prev)) === 86400000 ? run + 1 : 1;
+      longest = Math.max(longest, run);
+      prev = iso;
+    }
+    let current = 0;
+    const cursorDay = dateOf(today);
+    if (!daySet.has(today)) cursorDay.setDate(cursorDay.getDate() - 1);
+    while (daySet.has(isoOf(cursorDay))) {
+      current += 1;
+      cursorDay.setDate(cursorDay.getDate() - 1);
+    }
+    const totalChars = [...chars.values()].reduce((a, b) => a + b, 0);
+    const photos = entries.reduce((sum, e) => sum + imageCount(e), 0);
+    const places = allPlaces(entries).length;
+
+    const tile = (value, label) => el('div', { class: 'st' },
+      el('div', { class: 'st-v' }, String(value)),
+      el('div', { class: 'st-k' }, label));
+
+    return el('div', { class: 'st-row' },
+      tile(`${current}`, '连续天数'),
+      tile(`${longest}`, '最长连续'),
+      tile(`${entries.length}`, '写过天数'),
+      tile(`${totalChars}`, '总字数'),
+      tile(`${photos}`, '照片'),
+      tile(`${places}`, '地点')
+    );
   }
 
   function renderFooter() {

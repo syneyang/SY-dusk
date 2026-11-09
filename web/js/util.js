@@ -1,6 +1,6 @@
 // 一些小工具：建 DOM、日期、提示条。
 
-export const APP_VERSION = '0.7.1';
+export const APP_VERSION = '0.7.2';
 
 export function el(tag, props = {}, ...children) {
   const node = document.createElement(tag);

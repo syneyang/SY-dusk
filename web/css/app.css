@@ -912,3 +912,25 @@ body.locked #view { padding-bottom: 20px; }
 
 .insert-hint { font-size: 12px; color: var(--dawn); margin-right: 6px; }
 .photo-home { display: inline-flex; align-items: center; }
+
+/* ---------- 望：统计条 ---------- */
+
+.st-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.st {
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.st-v {
+  font-family: "Songti SC", "STSong", Georgia, serif;
+  font-size: 20px;
+  line-height: 1.1;
+  color: var(--ink);
+}
+.st-k { font-size: 11px; color: var(--ink-soft); margin-top: 2px; }

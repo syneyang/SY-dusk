@@ -99,6 +99,16 @@ export async function renderEditor(root, dateISO) {
     const clean = (name || '').trim();
     if (!clean) return;
     if (!entry.regions.some((r) => placeName(r) === clean)) entry.regions.push(clean);
+    dedupeRegions();
+  }
+
+  /** 「上城区」和「上城区丁兰街道」同时存在时，只留更精确的那个。 */
+  function dedupeRegions() {
+    const names = entry.regions.map(placeName);
+    entry.regions = entry.regions.filter((region) => {
+      const name = placeName(region);
+      return !names.some((other) => other !== name && other.startsWith(name));
+    });
   }
 
   function addPlace(place) {
@@ -122,12 +132,6 @@ export async function renderEditor(root, dateISO) {
       const township = data.township || '';
       const label = township ? `${district}${township}` : district;
       if (!label) return;
-      entry.regions = entry.regions.filter((r) => {
-        const name = placeName(r);
-        if (name === label) return true;
-        if (name === district && label !== district) return false;
-        return true;
-      });
       addRegionOnce(label);
       renderRegions();
       scheduleSave();
