@@ -299,20 +299,27 @@ export async function renderEditor(root, dateISO) {
         const grow = () => { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; };
         ta.addEventListener('input', () => { block.text = ta.value; grow(); scheduleSave(); });
         ta.addEventListener('paste', (event) => {
-          const text = event.clipboardData?.getData('text/plain') || '';
-          if (!text) return;
+          const raw = event.clipboardData?.getData('text/plain') || '';
+          if (!raw) return;
           event.preventDefault();
+
           const start = ta.selectionStart;
           const before = ta.value.slice(0, start);
           const after = ta.value.slice(ta.selectionEnd);
-          const paragraphs = text.replace(/\r\n/g, '\n').split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+          const { text, paragraphs, guessedDate } = cleanPasted(raw);
+
+          if (guessedDate && guessedDate !== entry.date) {
+            toast(`这段写的是 ${guessedDate}，日期没改，要改的话点上面的日期`);
+          }
+
           if (paragraphs.length <= 1) {
-            ta.value = before + text.trim() + after;
+            ta.value = before + text + after;
             block.text = ta.value;
             grow();
             scheduleSave();
             return;
           }
+          toast(`已粘入 ${paragraphs.length} 段`);
           block.text = before + paragraphs[0];
           const rest = paragraphs.slice(1).map((p) => ({ type: 'text', text: p }));
           if (after.trim()) rest.push({ type: 'text', text: after.trim() });
@@ -533,4 +540,48 @@ export async function renderEditor(root, dateISO) {
 export function cleanupEditor() {
   if (current && current.cleanup) current.cleanup();
   current = null;
+}
+
+// ---------- 粘贴清洗 ----------
+
+/** 豆包粘过来的东西：去掉开头的「# 日期 日记」和结尾的提问，再按段落切开。 */
+function cleanPasted(raw) {
+  let text = raw.replace(/\r\n/g, '\n').trim();
+  let guessedDate = null;
+
+  const lines = text.split('\n');
+  if (lines.length > 1) {
+    const first = lines[0].trim();
+    if (looksLikeTitle(first)) {
+      const match = first.match(/(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/);
+      if (match) {
+        guessedDate = `${match[1]}-${String(match[2]).padStart(2, '0')}-${String(match[3]).padStart(2, '0')}`;
+      }
+      lines.shift();
+      text = lines.join('\n').trim();
+    }
+  }
+
+  let paragraphs = text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  while (paragraphs.length && looksLikeAssistantTail(paragraphs[paragraphs.length - 1])) paragraphs.pop();
+
+  // 整篇只有单换行时，也按行切开（每行不长才切，避免把一句话切碎）
+  if (paragraphs.length === 1 && paragraphs[0].includes('\n')) {
+    const byLine = paragraphs[0].split('\n').map((l) => l.trim()).filter(Boolean);
+    if (byLine.length > 1 && byLine.every((l) => l.length < 120)) paragraphs = byLine;
+  }
+
+  return { text: paragraphs.join('\n\n'), paragraphs, guessedDate };
+}
+
+function looksLikeTitle(line) {
+  if (line.length > 30) return false;
+  if (/^#{1,6}\s/.test(line)) return true;
+  if (/日记$/.test(line)) return true;
+  if (/^\d{4}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*日/.test(line)) return true;
+  return false;
+}
+
+function looksLikeAssistantTail(paragraph) {
+  return /^(要不要我|需要我|我还可以|如果你需要|需要的话|要不要帮你|还要我|我可以再|如果 你)/.test(paragraph.trim());
 }

@@ -91,7 +91,7 @@ export function allRegions(entries) {
 
 // ---- 照片处理 ----
 
-const MAX_EDGE = 1600;
+const MAX_EDGE = 1280;
 const THUMB_EDGE = 320;
 const QUALITY = 0.82;
 
