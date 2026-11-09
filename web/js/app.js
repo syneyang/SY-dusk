@@ -6,6 +6,7 @@ import { renderReview } from './review.js';
 import { renderSettings } from './settings.js';
 import { renderRead } from './read.js';
 import { requireUnlock, startAutoLock } from './lock.js';
+import { syncNow } from './sync.js';
 import { todayISO } from './util.js';
 
 const view = document.getElementById('view');
@@ -73,6 +74,9 @@ async function boot() {
   if (!unlocked) return;
   startAutoLock();
   route();
+
+  // 解锁后顺手同步一次（失败不影响使用）
+  syncNow().catch(() => {});
 }
 
 boot();
