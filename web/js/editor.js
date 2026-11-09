@@ -545,7 +545,7 @@ export function cleanupEditor() {
 // ---------- 粘贴清洗 ----------
 
 /** 豆包粘过来的东西：去掉开头的「# 日期 日记」和结尾的提问，再按段落切开。 */
-function cleanPasted(raw) {
+export function cleanPasted(raw) {
   let text = raw.replace(/\r\n/g, '\n').trim();
   let guessedDate = null;
 
