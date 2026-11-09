@@ -57,6 +57,9 @@ function measureContext() {
   return canvas.getContext('2d');
 }
 
+// 中文不该出现在行首的标点
+const NO_LINE_START = '，。、；：？！）》」』】’”…—·';
+
 function wrap(ctx, text, maxWidth) {
   const lines = [];
   for (const paragraph of String(text).split('\n')) {
@@ -64,8 +67,14 @@ function wrap(ctx, text, maxWidth) {
     for (const char of paragraph) {
       const next = line + char;
       if (line && ctx.measureText(next).width > maxWidth) {
-        lines.push(line);
-        line = char;
+        // 标点跟在行尾，不另起一行
+        if (NO_LINE_START.includes(char)) {
+          lines.push(next);
+          line = '';
+        } else {
+          lines.push(line);
+          line = char;
+        }
       } else {
         line = next;
       }
