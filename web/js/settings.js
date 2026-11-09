@@ -154,8 +154,7 @@ export async function renderSettings(root) {
       class: 'ghost',
       style: 'width:100%;padding:12px;margin-top:10px',
       onclick: () => lockNow()
-    }, '立即锁定'),
-    await faceToggleRow()
+    }, '立即锁定')
   ));
 
   // 危险
