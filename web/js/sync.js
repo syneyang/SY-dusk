@@ -68,8 +68,16 @@ export async function syncNow(progress = () => {}) {
   await db.setMeta(PULL_KEY, Date.now());
 
   // ---------- 3. 推本地照片 ----------
+  // 只传真被日记引用的照片，孤儿照片（试插没保存成功的）不往云上传
   const imgPushFrom = await db.getMeta(IMG_PUSH_KEY, 0);
-  const localImages = (await db.rawImages()).filter((r) => (r.createdAt || 0) > imgPushFrom);
+  const referenced = new Set();
+  for (const entry of await db.allEntries()) {
+    for (const block of entry.blocks || []) {
+      if (block.type === 'image' && block.imageId) referenced.add(block.imageId);
+    }
+  }
+  const localImages = (await db.rawImages())
+    .filter((r) => (r.createdAt || 0) > imgPushFrom && referenced.has(r.id));
   if (localImages.length) {
     progress(`上传 ${localImages.length} 张照片…`);
     for (const image of localImages) {

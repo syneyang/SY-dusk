@@ -146,6 +146,27 @@ export async function renderSettings(root) {
   }
   root.append(accountCard);
 
+  // 照片管理
+  const orphanLine = el('div', { class: 'hint', style: 'margin-top:0' }, '正在统计照片…');
+  root.append(el('div', { class: 'card' },
+    el('h3', {}, '照片'),
+    orphanLine,
+    el('button', {
+      class: 'ghost',
+      style: 'width:100%;padding:12px;margin-top:10px',
+      onclick: async () => {
+        const count = await cleanupOrphans();
+        if (count === null) return;
+        orphanLine.textContent = `已清理 ${count} 张没用到的照片`;
+      }
+    }, '清理没用到的照片')
+  ));
+  countOrphans().then((n) => {
+    orphanLine.textContent = n > 0
+      ? `有 ${n} 张照片没挂到任何日记上（多半是试插没保存成功的），可以清掉。`
+      : '没有多余的照片。';
+  });
+
   // 隐私
   root.append(el('div', { class: 'card' },
     el('h3', {}, '隐私'),
@@ -173,6 +194,34 @@ export async function renderSettings(root) {
 
   root.append(el('div', { class: 'hint', style: 'text-align:center;margin-top:22px' },
     `朝夕 v${APP_VERSION} · 只给自己用的日记本`));
+}
+
+async function orphanCounts() {
+  const entries = await db.allEntries();
+  const ref = new Set();
+  for (const entry of entries) {
+    for (const block of entry.blocks || []) {
+      if (block.type === 'image' && block.imageId) ref.add(block.imageId);
+    }
+  }
+  const images = await db.rawImages();
+  const orphans = images.filter((image) => !ref.has(image.id));
+  return { total: images.length, orphans };
+}
+
+function countOrphans() {
+  return orphanCounts().then(({ orphans }) => orphans.length).catch(() => 0);
+}
+
+async function cleanupOrphans() {
+  const { orphans } = await orphanCounts();
+  if (!orphans.length) {
+    toast('没有可清理的照片');
+    return null;
+  }
+  if (!confirmAction(`清理 ${orphans.length} 张没挂到日记上的照片？`)) return null;
+  for (const image of orphans) await db.deleteImage(image.id);
+  return orphans.length;
 }
 
 function daysAgo(timestamp) {
