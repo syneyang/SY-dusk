@@ -54,7 +54,10 @@ export async function renderRead(root, dateISO) {
   // ---------- 浮动返回 ----------
   root.append(el('div', { class: 'read-bar' },
     el('a', { class: 'read-back', href: '#/list', 'aria-label': '返回' }, '‹'),
-    el('a', { class: 'read-edit-top', href: `#/entry/${dateISO}` }, '编辑')
+    el('div', { style: 'display:flex;gap:8px' },
+      el('button', { class: 'read-edit-top', onclick: () => openMenu(items, meta, dateISO) }, '⋯'),
+      el('a', { class: 'read-edit-top', href: `#/entry/${dateISO}` }, '编辑')
+    )
   ));
 
   // ---------- 头部 ----------
@@ -186,4 +189,82 @@ function captionFor(image) {
     : '';
   const place = image.place || '';
   return [time, place].filter(Boolean).join(' · ');
+}
+
+// ---------- 分享菜单 ----------
+
+function plainTextOf(items, meta, dateISO) {
+  const lines = [`${monthDayCN(dateISO)} ${weekdayCN(dateISO)}`];
+  if (meta.length) lines.push(meta.join(' · '));
+  lines.push('');
+  for (const item of items) {
+    if (item.type === 'text') lines.push(item.text);
+  }
+  return lines.join('\n');
+}
+
+function markdownOf(items, meta, dateISO) {
+  const lines = [`## ${monthDayCN(dateISO)} ${weekdayCN(dateISO)}`, ''];
+  if (meta.length) lines.push(`> ${meta.join(' · ')}`, '');
+  let photo = 0;
+  for (const item of items) {
+    if (item.type === 'text') {
+      lines.push(item.text, '');
+    } else {
+      photo += 1;
+      lines.push(`![照片 ${photo}](photo-${photo}.jpg)`, '');
+    }
+  }
+  return lines.join('\n').trim() + '\n';
+}
+
+async function copy(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('已复制');
+  } catch {
+    const area = document.createElement('textarea');
+    area.value = text;
+    document.body.append(area);
+    area.select();
+    document.execCommand('copy');
+    area.remove();
+    toast('已复制');
+  }
+}
+
+function openMenu(items, meta, dateISO) {
+  const text = plainTextOf(items, meta, dateISO);
+  const markdown = markdownOf(items, meta, dateISO);
+
+  const panel = el('div', { class: 'sheet', onclick: (event) => event.stopPropagation() },
+    el('div', { class: 'sheet-grip' }),
+    el('div', { class: 'sheet-head' }, el('div', { class: 'sheet-title' }, '这一天')),
+    el('div', { class: 'share-list' },
+      el('button', { class: 'share-item', onclick: () => { close(); copy(text); } }, '复制文字'),
+      el('button', { class: 'share-item', onclick: () => { close(); copy(markdown); } }, '复制 Markdown'),
+      el('button', {
+        class: 'share-item',
+        onclick: async () => {
+          close();
+          if (navigator.share) {
+            try {
+              await navigator.share({ title: `${monthDayCN(dateISO)} 朝夕`, text });
+            } catch {}
+          } else {
+            copy(text);
+          }
+        }
+      }, '分享给…')
+    )
+  );
+
+  const backdrop = el('div', { class: 'sheet-backdrop', onclick: close }, panel);
+  document.body.append(backdrop);
+  requestAnimationFrame(() => backdrop.classList.add('show'));
+
+  function close() {
+    backdrop.classList.remove('show');
+    setTimeout(() => backdrop.remove(), 200);
+  }
 }

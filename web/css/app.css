@@ -1053,3 +1053,19 @@ button.set-row:active { background: var(--dawn-soft); }
   border: 1px solid var(--hairline);
   margin-top: 4px;
 }
+
+/* ---------- 分享菜单 ---------- */
+
+.share-list { display: flex; flex-direction: column; padding-bottom: 8px; }
+.share-item {
+  border: none;
+  background: none;
+  border-bottom: 1px solid var(--hairline);
+  padding: 16px 6px;
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--ink);
+  text-align: left;
+}
+.share-item:last-child { border-bottom: none; }
+.share-item:active { background: var(--dawn-soft); }
