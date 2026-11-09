@@ -252,6 +252,9 @@ export async function renderEditor(root, dateISO) {
     if (!blob) throw new Error('这张图读不出来');
 
     const exif = await readExif(file);
+    // HEIC 读不出 EXIF 时，用文件的修改时间兜底（通常就是拍照时间）
+    const takenAt = exif?.takenAt
+      || (file.lastModified ? new Date(file.lastModified).toISOString() : null);
     let place = '';
     let gps = null;
     if (exif && exif.lat != null && exif.lng != null) {
@@ -268,7 +271,7 @@ export async function renderEditor(root, dateISO) {
     await db.putImage({
       id, blob, thumb, width, height, date,
       createdAt: Date.now(),
-      takenAt: exif?.takenAt || null,
+      takenAt,
       gps,
       place
     });
