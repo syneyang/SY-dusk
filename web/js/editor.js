@@ -6,6 +6,7 @@ import {
   el, toast, debounce, todayISO, prevISO, weekdayCN, monthDayCN, fullCN, daysBetween
 } from './util.js';
 import { openPlacePicker } from './placepicker.js';
+import { readExif } from './exif.js';
 
 let current = null;
 
@@ -224,24 +225,47 @@ export async function renderEditor(root, dateISO) {
     const at = insertAfter >= 0 ? insertAfter : entry.blocks.length - 1;
     insertAfter = -1;
     let index = at;
+    let firstNew = null;
     for (const file of files) {
       try {
         const image = await storePhoto(file);
         index += 1;
         entry.blocks.splice(index, 0, { type: 'image', imageId: image.id });
+        if (firstNew == null) firstNew = index;
       } catch (error) {
         toast('有张照片没加上：' + (error.message || '未知错误'));
       }
     }
-    renderBlocks();
+    if (photoHome) photoRow.append(photoHome);  // 先放回底部，否则会被重新渲染销毁
+    renderBlocks(firstNew);
     await doSave();
   });
 
   async function storePhoto(file) {
     const { blob, width, height, thumb } = await compressImage(file);
     if (!blob) throw new Error('这张图读不出来');
+
+    const exif = await readExif(file);
+    let place = '';
+    let gps = null;
+    if (exif && exif.lat != null && exif.lng != null) {
+      gps = { lat: exif.lat, lng: exif.lng };
+      try {
+        const data = await (await fetch(`/api/regeo?lat=${gps.lat}&lng=${gps.lng}`)).json();
+        if (data.ok) place = [data.district, data.township].filter(Boolean).join('');
+      } catch {
+        // 拿不到地点就只显示时间
+      }
+    }
+
     const id = `${date}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    await db.putImage({ id, blob, thumb, width, height, date, createdAt: Date.now() });
+    await db.putImage({
+      id, blob, thumb, width, height, date,
+      createdAt: Date.now(),
+      takenAt: exif?.takenAt || null,
+      gps,
+      place
+    });
     return { id, blob };
   }
 
@@ -257,7 +281,7 @@ export async function renderEditor(root, dateISO) {
     });
   }
 
-  function renderBlocks() {
+  function renderBlocks(anchorIndex = null) {
     blockList.innerHTML = '';
 
     entry.blocks.forEach((block, index) => {
@@ -302,8 +326,12 @@ export async function renderEditor(root, dateISO) {
         block.type === 'text'
           ? el('button', { class: 'blk-btn', onclick: () => {
           insertAfter = index;
-          toast('插入点：这一段的后面，点下面「加照片」');
-          document.querySelector('.photo-row')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          const bar = card.querySelector('.blk-bar');
+          if (photoHome) {
+            bar.append(el('span', { class: 'insert-hint' }, '选照片 →'));
+            bar.append(photoHome);
+            photoHome.scrollIntoView({ block: 'nearest' });
+          }
         } }, '＋图')
           : el('button', { class: 'blk-btn', onclick: () => { entry.coverImageId = block.imageId; renderCover(); scheduleSave(); toast('已设为封面'); } }, '封面'),
         block.type === 'text'
@@ -320,6 +348,13 @@ export async function renderEditor(root, dateISO) {
     if (!entry.blocks.length) {
       blockList.append(el('div', { class: 'hint' }, '还没有内容，下面加一段。'));
     }
+
+    if (anchorIndex != null) {
+      requestAnimationFrame(() => {
+        const node = blockList.children[anchorIndex];
+        node?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      });
+    }
   }
 
   function moveBlock(index, delta) {
@@ -327,13 +362,13 @@ export async function renderEditor(root, dateISO) {
     if (target < 0 || target >= entry.blocks.length) return;
     const [block] = entry.blocks.splice(index, 1);
     entry.blocks.splice(target, 0, block);
-    renderBlocks();
+    renderBlocks(target);
     scheduleSave();
   }
 
   function removeBlock(index) {
     entry.blocks.splice(index, 1);
-    renderBlocks();
+    renderBlocks(Math.max(0, Math.min(index, entry.blocks.length - 1)));
     scheduleSave();
   }
 
@@ -352,9 +387,10 @@ export async function renderEditor(root, dateISO) {
   }, '＋ 段落');
 
   const photoRow = el('div', { class: 'photo-row' },
-    el('span', { class: 'photo-row-label' }, '加照片'),
-    photoInput
+    el('span', { class: 'photo-row-label' }, '加照片')
   );
+  const photoHome = el('span', { class: 'photo-home' }, photoInput);
+  photoRow.append(photoHome);
 
   const counter = el('span', { class: 'hint', style: 'margin:0' },
     `${charCount(entry)} 字 · ${imageCount(entry)} 张`);

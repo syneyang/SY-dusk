@@ -899,3 +899,16 @@ body.locked #view { padding-bottom: 20px; }
 .yr-dot.on { background: var(--dawn); }
 .yr-dot.blank { background: transparent; }
 .yr-places { margin-top: 16px; }
+
+/* ---------- 读模式：结构化元信息 ---------- */
+
+.read-meta { display: flex; flex-direction: column; gap: 4px; padding: 14px 20px 0; }
+.read-meta-line { display: flex; align-items: baseline; gap: 8px; font-size: 12px; color: var(--ink-soft); }
+.read-meta-key { flex: 0 0 28px; color: var(--dawn); letter-spacing: 1px; }
+.read-meta-val { flex: 1; line-height: 1.6; }
+.read-meta-more { border: none; background: none; color: var(--dawn); font-size: 12px; font-family: inherit; padding: 0 4px; }
+
+/* ---------- 编辑器：插入点 ---------- */
+
+.insert-hint { font-size: 12px; color: var(--dawn); margin-right: 6px; }
+.photo-home { display: inline-flex; align-items: center; }

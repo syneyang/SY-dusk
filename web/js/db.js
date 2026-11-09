@@ -180,6 +180,9 @@ export async function putImage(record) {
     width: record.width || 0,
     height: record.height || 0,
     mime: record.blob.type || 'image/jpeg',
+    takenAt: record.takenAt || null,
+    gps: record.gps || null,
+    place: record.place || '',
     blob: await encryptBytes(masterKey, await record.blob.arrayBuffer()),
     v: 2
   };

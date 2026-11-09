@@ -1,6 +1,6 @@
 // 离线缓存：先给出缓存里的外壳，再后台更新。
 
-const CACHE = 'dusk-v8';
+const CACHE = 'dusk-v9';
 
 const ASSETS = [
   './',
@@ -17,6 +17,7 @@ const ASSETS = [
   './js/crypto.js',
   './js/lock.js',
   './js/sync.js',
+  './js/exif.js',
   './js/settings.js',
   './js/util.js',
   './icons/icon-192.png',

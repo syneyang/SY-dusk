@@ -22,7 +22,13 @@ export async function renderRead(root, dateISO) {
       if (!record) continue;
       const url = URL.createObjectURL(record.blob);
       urls.push(url);
-      items.push({ type: 'image', id: block.imageId, url, at: record.createdAt || null });
+      items.push({
+        type: 'image',
+        id: block.imageId,
+        url,
+        takenAt: record.takenAt || null,
+        place: record.place || ''
+      });
     } else if (block.type === 'text') {
       const text = block.text.trim();
       if (text) items.push({ type: 'text', text });
@@ -44,7 +50,6 @@ export async function renderRead(root, dateISO) {
 
   const places = entry.places.map(placeName).filter(Boolean);
   const regions = entry.regions.map(placeName).filter(Boolean);
-  let metaExpanded = false;
 
   // ---------- 浮动返回 ----------
   root.append(el('div', { class: 'read-bar' },
@@ -72,27 +77,37 @@ export async function renderRead(root, dateISO) {
   // ---------- 元信息 ----------
   const metaHost = el('div', { class: 'read-meta' });
   root.append(metaHost);
+  let metaExpanded = false;
 
   function renderMeta() {
     metaHost.innerHTML = '';
-    const head = [];
-    if (entry.weather) head.push(el('span', { class: 'read-meta-weather' }, entry.weather));
-    head.push(...places.slice(0, 1).map((text) => el('span', {}, text)));
-    head.push(...regions.slice(0, 1).map((text) => el('span', {}, text)));
-    metaHost.append(...head);
 
-    const hidden = places.slice(1).concat(regions.slice(1));
-    if (hidden.length && !metaExpanded) {
-      metaHost.append(el('button', {
-        class: 'read-meta-more',
-        onclick: () => { metaExpanded = true; renderMeta(); }
-      }, `+${hidden.length}`));
-    } else if (metaExpanded) {
-      metaHost.append(...hidden.map((text) => el('span', {}, text)));
-      metaHost.append(el('button', {
-        class: 'read-meta-more',
-        onclick: () => { metaExpanded = false; renderMeta(); }
-      }, '收起'));
+    if (places.length) {
+      const shown = metaExpanded ? places : places.slice(0, 3);
+      metaHost.append(el('div', { class: 'read-meta-line' },
+        el('span', { class: 'read-meta-key' }, '去了'),
+        el('span', { class: 'read-meta-val' }, shown.join(' · ')),
+        places.length > 3
+          ? el('button', {
+              class: 'read-meta-more',
+              onclick: () => { metaExpanded = !metaExpanded; renderMeta(); }
+            }, metaExpanded ? '收起' : `+${places.length - 3}`)
+          : null
+      ));
+    }
+
+    if (regions.length) {
+      metaHost.append(el('div', { class: 'read-meta-line' },
+        el('span', { class: 'read-meta-key' }, '在'),
+        el('span', { class: 'read-meta-val' }, regions.join(' · '))
+      ));
+    }
+
+    if (entry.weather) {
+      metaHost.append(el('div', { class: 'read-meta-line' },
+        el('span', { class: 'read-meta-key' }, '天气'),
+        el('span', { class: 'read-meta-val' }, entry.weather)
+      ));
     }
   }
   renderMeta();
@@ -105,12 +120,6 @@ export async function renderRead(root, dateISO) {
     && !/[。！？!?…]$/.test(firstText)
     ? firstText
     : null;
-  const ledeCandidate = !titleCandidate
-    && texts.length > 1
-    && firstText.length >= 40
-    ? firstText
-    : null;
-
   const body = el('div', { class: 'read-body' });
   let firstParagraph = true;
   let heroSkipped = !hero;
@@ -123,8 +132,6 @@ export async function renderRead(root, dateISO) {
     }
     if (firstParagraph && titleCandidate) {
       body.append(el('h2', { class: 'read-title' }, item.text.trim()));
-    } else if (firstParagraph && ledeCandidate) {
-      body.append(el('p', { class: 'read-lede' }, item.text));
     } else {
       body.append(el('p', {}, item.text));
     }
@@ -165,17 +172,18 @@ export async function renderRead(root, dateISO) {
       }
     }, isCover ? '✓ 封面' : '设为封面');
 
+    const caption = captionFor(image);
     return el('figure', { class: 'read-figure' },
       el('img', { src: image.url, alt: '', loading: 'lazy' }),
-      el('figcaption', {}, el('span', {}, captionFor(image, entry)), coverBtn)
+      el('figcaption', {}, el('span', {}, caption), coverBtn)
     );
   }
 }
 
-function captionFor(image, entry) {
-  const time = image.at
-    ? new Date(image.at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+function captionFor(image) {
+  const time = image.takenAt
+    ? new Date(image.takenAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
     : '';
-  const place = entry.places.map(placeName)[0] || '';
-  return [time, place].filter(Boolean).join(' · ') || '照片';
+  const place = image.place || '';
+  return [time, place].filter(Boolean).join(' · ');
 }
