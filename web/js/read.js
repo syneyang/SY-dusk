@@ -58,7 +58,7 @@ export async function renderRead(root, dateISO) {
   root.append(el('div', { class: 'read-bar' },
     el('a', { class: 'read-back', href: '#/list', 'aria-label': '返回' }, '‹'),
     el('div', { style: 'display:flex;gap:8px' },
-      el('button', { class: 'read-edit-top', onclick: () => openMenu(items, metaList, dateISO) }, '⋯'),
+      el('button', { class: 'read-edit-top', onclick: () => openMenu(items, metaList, dateISO, entry) }, '⋯'),
       el('a', { class: 'read-edit-top', href: `#/entry/${dateISO}` }, '编辑')
     )
   ));
@@ -236,7 +236,7 @@ async function copy(text) {
   }
 }
 
-function openMenu(items, meta, dateISO) {
+function openMenu(items, meta, dateISO, entry) {
   const text = plainTextOf(items, meta, dateISO);
   const markdown = markdownOf(items, meta, dateISO);
 
