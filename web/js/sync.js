@@ -72,6 +72,7 @@ export async function syncNow(progress = () => {}) {
   const imgPushFrom = await db.getMeta(IMG_PUSH_KEY, 0);
   const referenced = new Set();
   for (const entry of await db.allEntries()) {
+    if (entry.coverImageId) referenced.add(entry.coverImageId);
     for (const block of entry.blocks || []) {
       if (block.type === 'image' && block.imageId) referenced.add(block.imageId);
     }

@@ -232,6 +232,7 @@ async function orphanCounts() {
   const entries = await db.allEntries();
   const ref = new Set();
   for (const entry of entries) {
+    if (entry.coverImageId) ref.add(entry.coverImageId);
     for (const block of entry.blocks || []) {
       if (block.type === 'image' && block.imageId) ref.add(block.imageId);
     }
