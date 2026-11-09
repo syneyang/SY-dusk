@@ -90,9 +90,42 @@ async function boot() {
 
 boot();
 
-// 离线缓存
+// 离线缓存 + 版本检查
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    // updateViaCache: 'none' 让浏览器每次都去问服务器 sw.js 有没有变
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => {});
   });
+}
+
+checkForUpdate();
+
+/** 线上版本比本地新时，顶部冒一条「点此更新」。 */
+async function checkForUpdate() {
+  try {
+    const response = await fetch('js/util.js?ts=' + Date.now(), { cache: 'no-store' });
+    if (!response.ok) return;
+    const text = await response.text();
+    const match = text.match(/APP_VERSION = '([^']+)'/);
+    if (!match) return;
+    const remote = match[1];
+    const { APP_VERSION: local } = await import('./util.js');
+    if (remote === local) return;
+
+    const bar = document.createElement('button');
+    bar.className = 'update-bar';
+    bar.textContent = `有新版本 ${remote}，点这里更新`;
+    bar.onclick = async () => {
+      try {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((key) => caches.delete(key)));
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+      } catch {}
+      location.reload();
+    };
+    document.body.append(bar);
+  } catch {
+    // 离线时不管
+  }
 }
