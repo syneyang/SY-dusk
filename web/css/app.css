@@ -1043,3 +1043,13 @@ button.set-row:active { background: var(--dawn-soft); }
   border: none;
   padding: 0;
 }
+
+/* ---------- 全宽按钮 ---------- */
+
+.lock-btn.wide { width: 100%; max-width: 300px; margin-top: 10px; }
+.lock-btn.ghost.wide {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+  margin-top: 4px;
+}

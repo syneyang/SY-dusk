@@ -4,6 +4,7 @@ import * as db from './db.js';
 import * as crypto from './crypto.js';
 import * as auth from './auth.js';
 import { el, toast } from './util.js';
+import { syncNow } from './sync.js';
 
 const AUTO_LOCK_MS = 5 * 60 * 1000;
 let lockTimer = null;
@@ -36,7 +37,37 @@ export async function requireUnlock(root) {
 async function finish(masterRaw) {
   db.setMasterKey(await crypto.importMasterKey(masterRaw));
   if (await db.needsMigration()) await migrate(document.getElementById('view'));
+
+  // 这台设备上还没有日记、但已经登录账号：先把云端的拉下来
+  try {
+    if (await auth.getSession()) {
+      const count = await db.entryCount();
+      if (count === 0) await pullFromCloud();
+    }
+  } catch {
+    // 拉不下来也先让用户进去
+  }
+
   document.body.classList.remove('locked');
+}
+
+function pullFromCloud() {
+  const view = document.getElementById('view');
+  return new Promise((resolve) => {
+    const note = el('div', { class: 'lock-note' }, '正在从云端拉取你的日记…');
+    view.innerHTML = '';
+    view.append(el('div', { class: 'lock' },
+      el('div', { class: 'lock-logo' }, '朝夕'),
+      el('div', { class: 'lock-title' }, '换台设备，日记也跟过来'),
+      note
+    ));
+    syncNow((text) => { note.textContent = text; })
+      .then(() => resolve())
+      .catch((error) => {
+        note.textContent = '拉取失败：' + (error.message || error) + '（进去后可以在设置里手动同步）';
+        setTimeout(resolve, 1800);
+      });
+  });
 }
 
 // ---------- 6 位密码 ----------
@@ -138,8 +169,8 @@ async function passcodeGate(root, localLock) {
 
 async function ensureLocalPasscode(root, masterRaw) {
   const code = await passcodeScreen(root, {
-    title: '再设一个 6 位密码',
-    subtitle: '以后打开 App 用它，不用每次都输邮箱密码。',
+    title: '设这台手机的 6 位密码',
+    subtitle: '只是这台手机的开机密码，换手机时重新设就行，可以和别的设备不一样。',
     confirm: true
   });
 
@@ -156,6 +187,20 @@ async function ensureLocalPasscode(root, masterRaw) {
 
 // ---------- 账号 ----------
 
+function accountChoice(root) {
+  return new Promise((resolve) => {
+    root.innerHTML = '';
+    root.append(el('div', { class: 'lock' },
+      el('div', { class: 'lock-logo' }, '朝夕'),
+      el('div', { class: 'lock-title' }, '这台手机上有日记吗？'),
+      el('div', { class: 'lock-note' },
+        '换手机的话选「登录」，用你原来的账号把日记拉回来；第一次用就选「创建账号」。'),
+      el('button', { class: 'lock-btn wide', onclick: () => resolve('login') }, '我已经有账号，登录'),
+      el('button', { class: 'lock-btn ghost wide', onclick: () => resolve('register') }, '第一次用，创建账号')
+    ));
+  });
+}
+
 async function accountGate(root) {
   const session = await auth.getSession();
   if (session) {
@@ -167,18 +212,27 @@ async function accountGate(root) {
   if (vault) {
     const masterRaw = await legacyPasscode(root, vault);
     if (masterRaw) {
-      const result = await registerScreen(root, masterRaw, { upgrading: true });
-      return result === '__login__' || result === '__register__' ? null : masterRaw;
+      await registerScreen(root, masterRaw, { upgrading: true });
+      return masterRaw;
     }
   }
 
+  let prefill = '';
   for (;;) {
-    const result = await registerScreen(root, crypto.randomBytes(32), { upgrading: false });
-    if (result === '__login__') {
-      const master = await loginWithEmail(root);
+    const choice = await accountChoice(root);
+
+    if (choice === 'login') {
+      const master = await loginWithEmail(root, prefill);
       if (master === '__register__') continue;
+      if (master && master.switch === 'login') { prefill = master.email || ''; continue; }
       return master;
     }
+
+    const result = await registerScreen(root, crypto.randomBytes(32), {
+      upgrading: false,
+      prefillEmail: prefill
+    });
+    if (result && result.switch === 'login') { prefill = result.email || ''; continue; }
     return result;
   }
 }
@@ -240,7 +294,7 @@ async function switchAccount(root) {
 
 // ---------- 注册 ----------
 
-function registerScreen(root, masterRaw, { upgrading }) {
+function registerScreen(root, masterRaw, { upgrading, prefillEmail = '' }) {
   let master = null;
   return formScreen(root, {
     title: upgrading ? '给日记加一个账号' : '创建账号',
@@ -248,19 +302,28 @@ function registerScreen(root, masterRaw, { upgrading }) {
       ? '旧密码已经验证过。设置邮箱和密码后，换设备登录就能看到这些日记。'
       : '邮箱只是账号名，不会给你发邮件。密码用来加密日记，忘记就找不回来。',
     fields: [
-      { key: 'email', label: '邮箱', type: 'email', placeholder: 'you@example.com', autofocus: true },
-      { key: 'password', label: '密码', type: 'password', placeholder: '至少 8 位，含字母和数字' },
+      { key: 'email', label: '邮箱', type: 'email', value: prefillEmail, placeholder: 'you@example.com', autofocus: !prefillEmail },
+      { key: 'password', label: '密码', type: 'password', autofocus: !!prefillEmail, placeholder: '至少 8 位，含字母和数字' },
       { key: 'confirm', label: '再输一次', type: 'password', placeholder: '确认密码' }
     ],
     action: '创建',
-    footer: (resolve) => el('button', { class: 'lock-link', onclick: () => resolve('__login__') }, '已有账号？去登录'),
-    submit: async ({ email, password, confirm }) => {
+    footer: (resolve) => el('button', { class: 'lock-link', onclick: () => resolve({ switch: 'login' }) }, '已有账号？去登录'),
+    submit: async ({ email, password, confirm }, resolve) => {
       if (!email.includes('@')) throw new Error('邮箱格式不对');
       const problem = auth.passwordProblem(password);
       if (problem) throw new Error(problem);
       if (password !== confirm) throw new Error('两次密码不一样');
 
-      await auth.register(email, password, masterRaw);
+      try {
+        await auth.register(email, password, masterRaw);
+      } catch (error) {
+        if (String(error.message || '').includes('已经注册')) {
+          // 这个邮箱已经存在，直接带过去登录
+          resolve({ switch: 'login', email: auth.normalizeEmail(email) });
+          return;
+        }
+        throw error;
+      }
       await db.deleteMeta('vault');
       master = masterRaw;
     }
@@ -269,17 +332,17 @@ function registerScreen(root, masterRaw, { upgrading }) {
 
 // ---------- 已有账号：输入邮箱登录 ----------
 
-function loginWithEmail(root) {
+function loginWithEmail(root, prefillEmail = '') {
   let master = null;
   return formScreen(root, {
     title: '登录',
-    subtitle: '输入注册时的邮箱和密码',
+    subtitle: '换手机就用这一步：邮箱和密码都是原来那个',
     fields: [
-      { key: 'email', label: '邮箱', type: 'email', placeholder: 'you@example.com', autofocus: true },
-      { key: 'password', label: '密码', type: 'password', placeholder: '至少 8 位' }
+      { key: 'email', label: '邮箱', type: 'email', value: prefillEmail, placeholder: 'you@example.com', autofocus: !prefillEmail },
+      { key: 'password', label: '密码', type: 'password', autofocus: !!prefillEmail, placeholder: '至少 8 位' }
     ],
     action: '登录',
-    footer: (resolve) => el('button', { class: 'lock-link', onclick: () => resolve('__register__') }, '没有账号？去注册'),
+    footer: (resolve) => el('button', { class: 'lock-link', onclick: () => resolve({ switch: 'register' }) }, '没有账号？去注册'),
     submit: async ({ email, password }) => {
       const { masterRaw } = await auth.login(email, password);
       master = masterRaw;
@@ -344,6 +407,7 @@ function formScreen(root, { title, subtitle, fields, action, submit, footer }) {
       const input = el('input', {
         class: 'lock-field',
         type: field.type,
+        value: field.value || '',
         placeholder: field.placeholder,
         autocomplete: field.type === 'password' ? 'current-password' : 'username',
         autocapitalize: 'off',
@@ -365,7 +429,7 @@ function formScreen(root, { title, subtitle, fields, action, submit, footer }) {
       try {
         const values = {};
         for (const [key, input] of Object.entries(inputs)) values[key] = input.value;
-        await submit(values);
+        await submit(values, resolve);
         resolve(true);
       } catch (e) {
         error.textContent = e.message || String(e);
