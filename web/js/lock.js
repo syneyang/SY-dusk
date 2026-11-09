@@ -87,6 +87,7 @@ function registerScreen(root, masterRaw, { upgrading }) {
       { key: 'confirm', label: '再输一次', type: 'password', placeholder: '确认密码' }
     ],
     action: '创建',
+    footer: el('button', { class: 'lock-link', onclick: () => loginWithEmail(root) }, '已有账号？去登录'),
     submit: async ({ email, password, confirm }) => {
       if (!email.includes('@')) throw new Error('邮箱格式不对');
       const problem = auth.passwordProblem(password);
@@ -96,6 +97,25 @@ function registerScreen(root, masterRaw, { upgrading }) {
       await auth.register(email, password, masterRaw);
       db.setMasterKey(await crypto.importMasterKey(masterRaw));
       await db.deleteMeta('vault');
+    }
+  });
+}
+
+// ---------- 已有账号：输入邮箱登录 ----------
+
+function loginWithEmail(root) {
+  return formScreen(root, {
+    title: '登录',
+    subtitle: '输入注册时的邮箱和密码',
+    fields: [
+      { key: 'email', label: '邮箱', type: 'email', placeholder: 'you@example.com', autofocus: true },
+      { key: 'password', label: '密码', type: 'password', placeholder: '至少 8 位' }
+    ],
+    action: '登录',
+    footer: el('button', { class: 'lock-link', onclick: () => location.reload() }, '没有账号？去注册'),
+    submit: async ({ email, password }) => {
+      const { masterRaw } = await auth.login(email, password);
+      db.setMasterKey(await crypto.importMasterKey(masterRaw));
     }
   });
 }
