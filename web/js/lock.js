@@ -183,6 +183,19 @@ async function accountGate(root) {
   }
 }
 
+/** 设置页里改 6 位密码：先验旧密码，再设新的。 */
+export async function changePasscodeFlow(root) {
+  const localLock = await db.getMeta('localLock', null);
+  if (!localLock) {
+    toast('还没有设置 6 位密码');
+    return false;
+  }
+  const masterRaw = await passcodeGate(root, localLock);
+  if (!masterRaw) return false;
+  await ensureLocalPasscode(root, masterRaw);
+  return true;
+}
+
 export function lockNow() {
   location.hash = '#/today';
   location.reload();

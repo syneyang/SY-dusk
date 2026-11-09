@@ -1,23 +1,77 @@
-// 设置：开始日期、备份、导出、清空。
+// 设置：账号与同步、隐私、日记、备份、存储。
 
 import * as db from './db.js';
 import { normalize, plainText, imageIds, charCount, placeName } from './model.js';
 import { el, toast, fullCN, weekdayCN, todayISO, confirmAction, APP_VERSION } from './util.js';
-import { lockNow } from './lock.js';
+import { lockNow, changePasscodeFlow } from './lock.js';
 import { syncNow, syncStatus } from './sync.js';
 import { signOut } from './auth.js';
 
 export async function renderSettings(root) {
   const journeyStart = await db.getMeta('journeyStart', '2027-01-01');
   const lastBackup = await db.getMeta('lastBackup', null);
-  const entries = (await db.allEntries()).map(normalize);
+  const sync = await syncStatus();
+  const usage = await dataUsage();
+  const orphans = await countOrphans();
   const estimate = await db.storageEstimate();
 
   root.innerHTML = '';
-  root.append(el('h1', { style: 'font-size:26px;margin:4px 0 12px' }, '设置'));
+  root.append(el('h1', { class: 'page-title' }, '设置'));
 
-  // 旅程
-  const startInput = el('input', {
+  // ---------- 账号 ----------
+  const syncStatusLine = el('div', { class: 'set-note' },
+    sync.enabled
+      ? (sync.lastAt ? `上次同步：${new Date(sync.lastAt).toLocaleString('zh-CN')}` : '还没同步过')
+      : '还没有登录账号，日记只在这台设备上。');
+
+  const accountRows = [];
+  if (sync.enabled) {
+    accountRows.push(row({ label: '账号', value: sync.email }));
+    accountRows.push(row({
+      label: '立即同步',
+      onClick: async () => {
+        syncStatusLine.textContent = '正在同步…';
+        try {
+          const summary = await syncNow((text) => { syncStatusLine.textContent = text; });
+          syncStatusLine.textContent = `完成：上传 ${summary.pushed} 篇，拉取 ${summary.pulled} 篇，照片 ↑${summary.imagesUp || 0} ↓${summary.imagesDown || 0}`;
+        } catch (error) {
+          syncStatusLine.textContent = '同步失败：' + (error.message || error);
+        }
+      }
+    }));
+    accountRows.push(row({
+      label: '退出登录',
+      danger: true,
+      onClick: async () => {
+        if (!confirmAction('退出登录？日记还在本机，重新登录就能同步。')) return;
+        await signOut();
+        location.reload();
+      }
+    }));
+  } else {
+    accountRows.push(row({ label: '登录 / 注册', value: '重启 App 后可选', disabled: true }));
+  }
+
+  root.append(group('账号', accountRows, syncStatusLine));
+
+  // ---------- 隐私 ----------
+  root.append(group('隐私', [
+    row({
+      label: '修改 6 位密码',
+      onClick: async () => {
+        const changed = await changePasscodeFlow(root);
+        if (changed) {
+          toast('已更新 6 位密码');
+          await renderSettings(root);
+        }
+      }
+    }),
+    row({ label: '立即锁定', onClick: () => lockNow() }),
+    row({ label: 'Face ID 快捷解锁', value: '稍后支持', disabled: true })
+  ], el('div', { class: 'set-note' }, '日记和照片用你的密码加密后才存下来，没有密码谁也读不出来。')));
+
+  // ---------- 日记 ----------
+  const dateInput = el('input', {
     type: 'date',
     value: journeyStart,
     onchange: async (e) => {
@@ -25,57 +79,17 @@ export async function renderSettings(root) {
       toast('已保存');
     }
   });
+  root.append(group('日记', [
+    row({
+      label: '旅程开始',
+      value: `${journeyStart.slice(0, 4)}年${Number(journeyStart.slice(5, 7))}月${Number(journeyStart.slice(8, 10))}日`,
+      picker: dateInput
+    })
+  ], el('div', { class: 'set-note' }, '「第几天」按这个日期算。')));
 
-  root.append(el('div', { class: 'card' },
-    el('h3', {}, '旅程'),
-    el('div', { class: 'row', style: 'margin:0' }, el('span', { class: 'label' }, '开始日'), startInput),
-    el('div', { class: 'hint' }, '「第几天」按这个日期算。默认 2027 年 1 月 1 日。')
-  ));
-
-  // 导出
-  const exportJsonBtn = el('button', { class: 'primary', style: 'margin-top:6px' }, '导出 JSON 备份（含照片）');
-  exportJsonBtn.addEventListener('click', async () => {
-    exportJsonBtn.disabled = true;
-    exportJsonBtn.textContent = '正在打包…';
-    try {
-      await exportJSON();
-      toast('已开始下载');
-    } catch (error) {
-      toast('导出失败：' + (error.message || error));
-    } finally {
-      exportJsonBtn.disabled = false;
-      exportJsonBtn.textContent = '导出 JSON 备份（含照片）';
-    }
-  });
-
-  const exportHtmlBtn = el('button', { class: 'ghost', style: 'width:100%;margin-top:8px;padding:12px' }, '导出 HTML 单文件（可直接阅读）');
-  exportHtmlBtn.addEventListener('click', async () => {
-    exportHtmlBtn.disabled = true;
-    exportHtmlBtn.textContent = '正在生成…';
-    try {
-      await exportHTML();
-      toast('已开始下载');
-    } catch (error) {
-      toast('导出失败：' + (error.message || error));
-    } finally {
-      exportHtmlBtn.disabled = false;
-      exportHtmlBtn.textContent = '导出 HTML 单文件（可直接阅读）';
-    }
-  });
-
-  root.append(el('div', { class: 'card' },
-    el('h3', {}, '备份与导出'),
-    exportJsonBtn,
-    exportHtmlBtn,
-    el('div', { class: 'hint' },
-      `目前 ${entries.length} 天有记录` +
-      (lastBackup ? `，上次备份：${daysAgo(lastBackup)} 天前` : '，还没有备份过') +
-      '。JSON 可以原样导回；HTML 是给人看的，任何设备都能打开。')
-  ));
-
-  // 导入
-  const importInput = el('input', { type: 'file', accept: 'application/json,.json', hidden: true });
-  importInput.addEventListener('change', async (event) => {
+  // ---------- 备份 ----------
+  const fileInput = el('input', { type: 'file', accept: 'application/json,.json' });
+  fileInput.addEventListener('change', async (event) => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
@@ -87,121 +101,108 @@ export async function renderSettings(root) {
     }
   });
 
-  root.append(el('div', { class: 'card' },
-    el('h3', {}, '导入'),
-    el('button', { class: 'ghost', style: 'width:100%;padding:12px', onclick: () => importInput.click() }, '从备份恢复…'),
-    el('div', { class: 'hint' }, '同一天以「更新过的时间」更晚的那份为准，不会重复。'),
-    importInput
-  ));
-
-  // 存储
-  const usage = await dataUsage();
-  const realMB = (usage.bytes / 1048576).toFixed(1);
-  const reportedMB = estimate ? (estimate.usage / 1048576).toFixed(1) : null;
-
-  root.append(el('div', { class: 'card' },
-    el('h3', {}, '存储'),
-    el('div', { class: 'hint', style: 'margin-top:0' },
-      `日记 ${usage.entries} 篇 · 照片 ${usage.images} 张 · 数据约 ${realMB} MB`),
-    el('div', { class: 'hint' },
-      reportedMB
-        ? `浏览器报告的占用是 ${reportedMB} MB，这个数包含缓存和已删除但还没回收的空间，会偏大，看上面那行更准。`
-        : ''),
-    el('div', { class: 'hint' },
-      '数据只存在这台设备的浏览器里。清空浏览器的网站数据会一起清掉，换手机之前一定先导出。')
-  ));
-
-  // 账号
-  const sync = await syncStatus();
-  const accountCard = el('div', { class: 'card' }, el('h3', {}, '账号'));
-
-  if (!sync.enabled) {
-    accountCard.append(el('div', { class: 'hint', style: 'margin-top:0' }, '还没有登录。'));
-  } else {
-    const statusLine = el('div', { class: 'hint', style: 'margin-top:8px' },
-      sync.lastAt ? `上次同步：${new Date(sync.lastAt).toLocaleString('zh-CN')}` : '还没同步过');
-
-    accountCard.append(
-      el('div', { class: 'hint', style: 'margin-top:0' }, `已登录：${sync.email}`),
-      el('button', {
-        class: 'primary',
-        style: 'margin-top:10px',
-        onclick: async () => {
-          statusLine.textContent = '正在同步…';
-          try {
-            const summary = await syncNow((text) => { statusLine.textContent = text; });
-            statusLine.textContent = `完成：上传 ${summary.pushed} 篇，拉取 ${summary.pulled} 篇，照片 ↑${summary.imagesUp} ↓${summary.imagesDown}`;
-          } catch (error) {
-            statusLine.textContent = '同步失败：' + (error.message || error);
-          }
+  root.append(group('备份与恢复', [
+    row({
+      label: '导出 JSON 备份',
+      value: '含照片',
+      onClick: async () => {
+        try {
+          await exportJSON();
+          toast('已开始下载');
+        } catch (error) {
+          toast('导出失败：' + (error.message || error));
         }
-      }, '立即同步'),
-      statusLine,
-      el('button', {
-        class: 'ghost',
-        style: 'width:100%;padding:11px;margin-top:8px',
-        onclick: async () => {
-          if (!confirmAction('退出登录？日记还在本机，重新登录就能同步。')) return;
-          await signOut();
-          location.reload();
-        }
-      }, '退出登录'),
-      el('div', { class: 'hint' }, '日记和照片加密后才上传，服务器看不到内容。')
-    );
-  }
-  root.append(accountCard);
-
-  // 照片管理
-  const orphanLine = el('div', { class: 'hint', style: 'margin-top:0' }, '正在统计照片…');
-  root.append(el('div', { class: 'card' },
-    el('h3', {}, '照片'),
-    orphanLine,
-    el('button', {
-      class: 'ghost',
-      style: 'width:100%;padding:12px;margin-top:10px',
-      onclick: async () => {
-        const count = await cleanupOrphans();
-        if (count === null) return;
-        orphanLine.textContent = `已清理 ${count} 张没用到的照片`;
       }
-    }, '清理没用到的照片')
-  ));
-  countOrphans().then((n) => {
-    orphanLine.textContent = n > 0
-      ? `有 ${n} 张照片没挂到任何日记上（多半是试插没保存成功的），可以清掉。`
-      : '没有多余的照片。';
-  });
+    }),
+    row({
+      label: '导出 HTML 单文件',
+      value: '直接可读',
+      onClick: async () => {
+        try {
+          await exportHTML();
+          toast('已开始下载');
+        } catch (error) {
+          toast('导出失败：' + (error.message || error));
+        }
+      }
+    }),
+    row({ label: '从备份恢复', value: '选择文件', file: fileInput })
+  ], el('div', { class: 'set-note' },
+    lastBackup
+      ? `上次备份：${daysAgo(lastBackup)} 天前。JSON 可以原样导回；HTML 是给人看的。`
+      : '还没有备份过。JSON 可以原样导回；HTML 是给人看的。')));
 
-  // 隐私
-  root.append(el('div', { class: 'card' },
-    el('h3', {}, '隐私'),
-    el('div', { class: 'hint', style: 'margin-top:0' }, '日记和照片都是用你的密码加密后存在本机的，没有密码谁也读不出来。'),
-    el('button', {
-      class: 'ghost',
-      style: 'width:100%;padding:12px;margin-top:10px',
-      onclick: () => lockNow()
-    }, '立即锁定')
-  ));
+  // ---------- 存储 ----------
+  root.append(group('存储', [
+    row({
+      label: `${usage.entries} 篇日记 · ${usage.images} 张照片`,
+      value: `约 ${(usage.bytes / 1048576).toFixed(1)} MB`
+    }),
+    row({
+      label: '清理没用到的照片',
+      value: orphans > 0 ? `${orphans} 张` : '没有',
+      onClick: async () => {
+        const count = await cleanupOrphans();
+        if (count) location.reload();
+      }
+    })
+  ], el('div', { class: 'set-note' },
+    estimate
+      ? `浏览器报告的占用是 ${(estimate.usage / 1048576).toFixed(1)} MB，包含缓存和已删除但没回收的空间，会偏大。`
+      : '')));
 
-  // 危险
-  root.append(el('div', { class: 'card' },
-    el('h3', {}, '危险操作'),
-    el('button', {
-      class: 'danger',
-      onclick: async () => {
+  // ---------- 危险 ----------
+  root.append(group('危险', [
+    row({
+      label: '清空全部日记和照片',
+      danger: true,
+      onClick: async () => {
         if (!confirmAction('清空全部日记和照片？这个操作无法撤销。')) return;
         await db.clearAll();
         toast('已清空');
         location.hash = '#/today';
+        location.reload();
       }
-    }, '清空全部数据')
-  ));
+    })
+  ]));
 
-  root.append(el('div', { class: 'hint', style: 'text-align:center;margin-top:22px' },
+  root.append(el('div', { class: 'set-note', style: 'text-align:center;margin-top:24px' },
     `朝夕 v${APP_VERSION} · 只给自己用的日记本`));
 }
 
-/** 真实数据量：把存的密文长度加一遍（base64 长度 × 0.75 ≈ 字节数）。 */
+// ---------- 小组件 ----------
+
+function group(title, rows, note) {
+  return el('div', { class: 'set-group' },
+    el('div', { class: 'set-title' }, title),
+    el('div', { class: 'set-card' }, ...rows, note || null)
+  );
+}
+
+function row({ label, value, onClick, danger, disabled, picker, file }) {
+  const isStatic = disabled || (!onClick && !picker && !file);
+  const node = el(isStatic ? 'div' : 'button', {
+    class: 'set-row' + (danger ? ' danger' : '') + (disabled ? ' disabled' : ''),
+    onclick: onClick || null,
+    type: isStatic ? null : 'button'
+  },
+    el('span', { class: 'set-label' }, label),
+    value ? el('span', { class: 'set-value' }, value) : null,
+    isStatic ? null : el('span', { class: 'set-chev' }, '›')
+  );
+
+  // 原生日期/文件控件：透明铺满整行，点哪都落到它身上
+  const hidden = picker || file;
+  if (hidden) {
+    node.classList.add('with-picker');
+    hidden.className = 'row-picker';
+    node.append(hidden);
+  }
+  return node;
+}
+
+// ---------- 数据统计 ----------
+
 async function dataUsage() {
   const entries = await db.rawEntries();
   const images = await db.rawImages();
@@ -223,28 +224,34 @@ async function orphanCounts() {
     }
   }
   const images = await db.rawImages();
-  const orphans = images.filter((image) => !ref.has(image.id));
-  return { total: images.length, orphans };
+  return { total: images.length, orphans: images.filter((image) => !ref.has(image.id)) };
 }
 
-function countOrphans() {
-  return orphanCounts().then(({ orphans }) => orphans.length).catch(() => 0);
+async function countOrphans() {
+  try {
+    return (await orphanCounts()).orphans.length;
+  } catch {
+    return 0;
+  }
 }
 
 async function cleanupOrphans() {
   const { orphans } = await orphanCounts();
   if (!orphans.length) {
     toast('没有可清理的照片');
-    return null;
+    return 0;
   }
-  if (!confirmAction(`清理 ${orphans.length} 张没挂到日记上的照片？`)) return null;
+  if (!confirmAction(`清理 ${orphans.length} 张没挂到日记上的照片？`)) return 0;
   for (const image of orphans) await db.deleteImage(image.id);
+  toast(`已清理 ${orphans.length} 张`);
   return orphans.length;
 }
 
 function daysAgo(timestamp) {
   return Math.max(0, Math.round((Date.now() - timestamp) / 86400000));
 }
+
+// ---------- 导出 / 导入 ----------
 
 function download(blob, filename) {
   const url = URL.createObjectURL(blob);
@@ -295,8 +302,7 @@ async function exportJSON() {
     entries,
     images: packedImages
   };
-  const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
-  download(blob, `朝夕备份-${todayISO()}.json`);
+  download(new Blob([JSON.stringify(payload)], { type: 'application/json' }), `朝夕备份-${todayISO()}.json`);
   await db.setMeta('lastBackup', Date.now());
 }
 
@@ -314,7 +320,8 @@ async function importJSON(file) {
     const existing = await db.getEntry(entry.date);
     if (existing && existing.updatedAt >= entry.updatedAt) continue;
     await db.putEntry(entry);
-    existing ? updated++ : added++;
+    if (existing) updated += 1;
+    else added += 1;
   }
 
   for (const image of payload.images || []) {
@@ -350,9 +357,7 @@ async function exportHTML() {
         const data = imageMap.get(block.imageId);
         return data ? `<img src="${data}" alt="">` : '';
       }
-      const paragraphs = block.text.split('\n').filter(Boolean)
-        .map((line) => `<p>${escapeHTML(line)}</p>`).join('');
-      return paragraphs;
+      return block.text.split('\n').filter(Boolean).map((line) => `<p>${escapeHTML(line)}</p>`).join('');
     }).join('');
 
     const metaBits = [entry.weather, ...(entry.places || []).map(placeName)].filter(Boolean).join(' · ');
