@@ -123,16 +123,9 @@ export async function renderSettings(root) {
       }
     }),
     row({
-      label: '导出今年（ZIP）',
+      label: '导出 ZIP（按月）',
       value: 'HTML + 照片',
-      onClick: async () => {
-        try {
-          await exportYearZip(Number(todayISO().slice(0, 4)));
-          toast('已开始打包');
-        } catch (error) {
-          toast('导出失败：' + (error.message || error));
-        }
-      }
+      onClick: () => pickMonthThenExport()
     }),
     row({
       label: '导出全部（仅文字）',
@@ -402,14 +395,14 @@ ${parts.join('\n')}
 </html>`;
 }
 
-/** 按年打包：index.html + images/，一个 ZIP 里，几十 MB 也打得开。 */
-async function exportYearZip(year) {
+/** 按月份打包：index.html + images/，一个月通常 50-70MB，手机上稳稳能打。 */
+async function exportMonthZip(monthKey) {
   const entries = (await db.allEntries())
     .map(normalize)
-    .filter((entry) => entry.date.startsWith(String(year)))
+    .filter((entry) => entry.date.startsWith(monthKey))
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  if (!entries.length) throw new Error('这一年还没有日记');
+  if (!entries.length) throw new Error('这个月还没有日记');
 
   const imageMap = new Map();
   const files = [];
@@ -432,8 +425,64 @@ async function exportYearZip(year) {
     data: new TextEncoder().encode(buildHTML(entries, imageMap))
   });
 
-  download(createZip(files), `朝夕-${year}.zip`);
+  download(createZip(files), `朝夕-${monthKey}.zip`);
   await db.setMeta('lastBackup', Date.now());
+}
+
+async function pickMonthThenExport() {
+  const entries = (await db.allEntries()).map(normalize);
+  const counts = new Map();
+  for (const entry of entries) {
+    const key = entry.date.slice(0, 7);
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  const months = [...counts.entries()]
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([key, count]) => ({ key, count }));
+
+  if (!months.length) {
+    toast('还没有日记');
+    return;
+  }
+
+  openSheet('导出哪个月', months.map((month) => ({
+    label: `${month.key.slice(0, 4)} 年 ${Number(month.key.slice(5, 7))} 月`,
+    value: `${month.count} 篇`,
+    onPick: async () => {
+      try {
+        toast('正在打包…');
+        await exportMonthZip(month.key);
+      } catch (error) {
+        toast('导出失败：' + (error.message || error));
+      }
+    }
+  })));
+}
+
+function openSheet(title, options) {
+  const panel = el('div', { class: 'sheet', onclick: (event) => event.stopPropagation() },
+    el('div', { class: 'sheet-grip' }),
+    el('div', { class: 'sheet-head' }, el('div', { class: 'sheet-title' }, title)),
+    el('div', { class: 'share-list' },
+      ...options.map((option) => el('button', {
+        class: 'share-item',
+        style: 'display:flex;justify-content:space-between;align-items:center',
+        onclick: () => { close(); option.onPick(); }
+      },
+        el('span', {}, option.label),
+        el('span', { style: 'color:var(--ink-soft);font-size:13px' }, option.value || '')
+      ))
+    )
+  );
+
+  const backdrop = el('div', { class: 'sheet-backdrop', onclick: close }, panel);
+  document.body.append(backdrop);
+  requestAnimationFrame(() => backdrop.classList.add('show'));
+
+  function close() {
+    backdrop.classList.remove('show');
+    setTimeout(() => backdrop.remove(), 200);
+  }
 }
 
 /** 全部日记，只有文字，单个 HTML，很小。 */
