@@ -1,7 +1,7 @@
 // 读：把一天自动排成杂志版。头图默认没有，你自己指定。
 
 import * as db from './db.js';
-import { normalize, plainText, placeName } from './model.js';
+import { normalize, plainText, placeName, dedupeRegions } from './model.js';
 import { el, weekdayCN, monthDayCN, fullCN, toast } from './util.js';
 
 export async function renderRead(root, dateISO) {
@@ -49,7 +49,7 @@ export async function renderRead(root, dateISO) {
   }
 
   const places = entry.places.map(placeName).filter(Boolean);
-  const regions = entry.regions.map(placeName).filter(Boolean);
+  const regions = dedupeRegions(entry.regions.map(placeName));
 
   // ---------- 浮动返回 ----------
   root.append(el('div', { class: 'read-bar' },

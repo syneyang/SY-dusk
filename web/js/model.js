@@ -14,6 +14,12 @@ export function newEntry(date) {
   };
 }
 
+/** 去掉被更精确项覆盖的短区域，比如「上城区」被「上城区丁兰街道」覆盖。 */
+export function dedupeRegions(names) {
+  const list = [...new Set(names.filter(Boolean))];
+  return list.filter((name) => !list.some((other) => other !== name && other.startsWith(name)));
+}
+
 export function placeName(place) {
   if (!place) return '';
   return typeof place === 'string' ? place : (place.name || '');

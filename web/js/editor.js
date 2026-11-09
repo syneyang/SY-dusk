@@ -1,7 +1,7 @@
 // 记日记：表头 + 块编辑器（段落块 / 图片块），图片是独立块，可插在任意位置。
 
 import * as db from './db.js';
-import { newEntry, normalize, compressImage, charCount, imageCount, placeName } from './model.js';
+import { newEntry, normalize, compressImage, charCount, imageCount, placeName, dedupeRegions } from './model.js';
 import {
   el, toast, debounce, todayISO, prevISO, weekdayCN, monthDayCN, fullCN, daysBetween
 } from './util.js';
@@ -157,7 +157,9 @@ export async function renderEditor(root, dateISO) {
 
   function renderRegions() {
     regionChips.innerHTML = '';
+    const keep = new Set(dedupeRegions(entry.regions.map(placeName)));
     for (const region of entry.regions) {
+      if (!keep.has(placeName(region))) continue;
       const name = placeName(region);
       regionChips.append(el('button', {
         class: 'chip region',
