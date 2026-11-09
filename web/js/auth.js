@@ -69,10 +69,8 @@ export async function register(email, password, masterRaw) {
 }
 
 export async function login(email, password) {
-  console.log('[auth] login start');
   const clean = normalizeEmail(email);
   const saltData = await fetchSalt(clean);
-  console.log('[auth] salt', JSON.stringify(saltData).slice(0, 80));
   if (!saltData.ok) throw new Error(saltData.error || '登录失败');
 
   const salt = fromB64(saltData.salt);
@@ -80,11 +78,8 @@ export async function login(email, password) {
   const data = await call({ action: 'login', email: clean, authHash });
   if (!data.ok) throw new Error(data.error || '邮箱或密码不对');
 
-  console.log('[auth] login response ok');
   const masterRaw = await unwrapMasterKey(data.wrapped, wrapKey);
-  console.log('[auth] unwrapped', masterRaw.length);
   await db.setMeta(SESSION_KEY, { email: clean, authHash, salt: saltData.salt, iterations: saltData.iterations || ITERATIONS });
-  console.log('[auth] session saved');
   return { masterRaw, email: clean };
 }
 

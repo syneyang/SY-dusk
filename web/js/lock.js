@@ -158,20 +158,29 @@ async function ensureLocalPasscode(root, masterRaw) {
 
 async function accountGate(root) {
   const session = await auth.getSession();
-  if (session) return await loginScreen(root, session);
+  if (session) {
+    const master = await loginScreen(root, session);
+    return typeof master === 'string' ? null : master;
+  }
 
   const vault = await db.getMeta('vault', null);
   if (vault) {
     const masterRaw = await legacyPasscode(root, vault);
     if (masterRaw) {
-      // 老用户：先给日记建个账号，再继续
-      const created = await registerScreen(root, masterRaw, { upgrading: true });
-      if (created) return masterRaw;
-      return null;
+      const result = await registerScreen(root, masterRaw, { upgrading: true });
+      return result === '__login__' || result === '__register__' ? null : masterRaw;
     }
   }
 
-  return await registerScreen(root, crypto.randomBytes(32), { upgrading: false });
+  for (;;) {
+    const result = await registerScreen(root, crypto.randomBytes(32), { upgrading: false });
+    if (result === '__login__') {
+      const master = await loginWithEmail(root);
+      if (master === '__register__') continue;
+      return master;
+    }
+    return result;
+  }
 }
 
 export function lockNow() {
@@ -208,7 +217,7 @@ function loginScreen(root, session) {
       const { masterRaw } = await auth.login(session.email, password);
       master = masterRaw;
     }
-  }).then((ok) => (ok ? master : null));
+  }).then((result) => (result === true ? master : result));
 }
 
 async function switchAccount(root) {
@@ -231,7 +240,7 @@ function registerScreen(root, masterRaw, { upgrading }) {
       { key: 'confirm', label: '再输一次', type: 'password', placeholder: '确认密码' }
     ],
     action: '创建',
-    footer: el('button', { class: 'lock-link', onclick: () => loginWithEmail(root) }, '已有账号？去登录'),
+    footer: (resolve) => el('button', { class: 'lock-link', onclick: () => resolve('__login__') }, '已有账号？去登录'),
     submit: async ({ email, password, confirm }) => {
       if (!email.includes('@')) throw new Error('邮箱格式不对');
       const problem = auth.passwordProblem(password);
@@ -242,7 +251,7 @@ function registerScreen(root, masterRaw, { upgrading }) {
       await db.deleteMeta('vault');
       master = masterRaw;
     }
-  }).then((ok) => (ok ? master : null));
+  }).then((result) => (result === true ? master : result));
 }
 
 // ---------- 已有账号：输入邮箱登录 ----------
@@ -257,12 +266,12 @@ function loginWithEmail(root) {
       { key: 'password', label: '密码', type: 'password', placeholder: '至少 8 位' }
     ],
     action: '登录',
-    footer: el('button', { class: 'lock-link', onclick: () => location.reload() }, '没有账号？去注册'),
+    footer: (resolve) => el('button', { class: 'lock-link', onclick: () => resolve('__register__') }, '没有账号？去注册'),
     submit: async ({ email, password }) => {
       const { masterRaw } = await auth.login(email, password);
       master = masterRaw;
     }
-  }).then((ok) => (ok ? master : null));
+  }).then((result) => (result === true ? master : result));
 }
 
 // ---------- 旧密码锁 → 升级 ----------
@@ -357,6 +366,8 @@ function formScreen(root, { title, subtitle, fields, action, submit, footer }) {
       if (event.key === 'Enter') run();
     });
 
+    const footerNode = typeof footer === 'function' ? footer(resolve) : footer;
+
     root.append(el('div', { class: 'lock' },
       el('div', { class: 'lock-logo' }, '朝夕'),
       el('div', { class: 'lock-title' }, title),
@@ -364,7 +375,7 @@ function formScreen(root, { title, subtitle, fields, action, submit, footer }) {
       ...rows,
       error,
       button,
-      footer || null
+      footerNode || null
     ));
 
     const first = fields.find((f) => f.autofocus);
