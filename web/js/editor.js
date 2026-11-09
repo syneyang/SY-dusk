@@ -128,7 +128,6 @@ export async function renderEditor(root, dateISO) {
       }
     }
 
-    console.log('[dbg] addPlace', name, place.district, place.lat, place.lng);
     const existing = entry.places.find((p) => placeName(p) === name);
     if (existing) {
       if (existing.lat == null && place.lat != null) {
@@ -139,10 +138,9 @@ export async function renderEditor(root, dateISO) {
     } else {
       entry.places.push({ name, district: place.district || '', lat: place.lat ?? null, lng: place.lng ?? null });
     }
-    if (place.district) {
-      addRegionOnce(place.district);
-      renderRegions();
-    }
+    if (place.district) addRegionOnce(place.district);
+    renderPlaces();
+    renderRegions();
     refineRegion(place);
     scheduleSave();
   }
@@ -195,12 +193,13 @@ export async function renderEditor(root, dateISO) {
   }
 
   function renderRegions() {
-    console.log('[dbg] renderRegions', JSON.stringify(entry.regions));
+    const names = entry.regions.map(placeName).filter(Boolean);
+    // 「上城区」和「上城区丁兰街道」同时存在时，只留更精确的那个
+    const kept = names.filter((name) => !names.some((other) => other !== name && other.startsWith(name)));
+    entry.regions = kept;
+
     regionChips.innerHTML = '';
-    const keep = new Set(dedupeRegions(entry.regions.map(placeName)));
-    for (const region of entry.regions) {
-      if (!keep.has(placeName(region))) continue;
-      const name = placeName(region);
+    for (const name of kept) {
       regionChips.append(el('button', {
         class: 'chip region',
         onclick: () => {
