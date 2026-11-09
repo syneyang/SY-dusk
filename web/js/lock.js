@@ -27,9 +27,8 @@ export async function requireUnlock(root) {
   const masterRaw = await accountGate(root);
   if (!masterRaw) return false;
 
-  if (!(await db.getMeta('localLock', null))) {
-    await ensureLocalPasscode(root, masterRaw);
-  }
+  // 走到账号这条路，说明本机还没有可用的 6 位密码（或刚忘掉），一律重设一个
+  await ensureLocalPasscode(root, masterRaw);
   await finish(masterRaw);
   return true;
 }
