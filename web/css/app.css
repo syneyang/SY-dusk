@@ -797,3 +797,30 @@ body.locked #view { padding-bottom: 20px; }
 .cover-set { display: flex; gap: 12px; align-items: center; }
 .cover-thumb img { width: 64px; height: 64px; border-radius: 10px; object-fit: cover; display: block; background: var(--hairline); }
 .cover-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; }
+
+/* ---------- 原生文件控件：可见但体面 ---------- */
+
+.native-file {
+  width: auto;
+  max-width: 100%;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--ink-soft);
+}
+.native-file::file-selector-button {
+  font-family: inherit;
+  font-size: 13px;
+  padding: 6px 12px;
+  margin-right: 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--ink);
+}
+.photo-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.photo-row-label { font-size: 12px; color: var(--ink-soft); }

@@ -191,7 +191,7 @@ export async function renderEditor(root, dateISO) {
     if (!coverId) {
       coverHost.append(el('div', { class: 'cover-empty' },
         el('span', {}, '封面（可选）'),
-        el('button', { class: 'ghost', style: 'padding:4px 10px;font-size:12px', onclick: () => coverInput.click() }, '选一张')
+        coverInput
       ));
       return;
     }
@@ -206,7 +206,7 @@ export async function renderEditor(root, dateISO) {
       holder,
       el('div', { class: 'cover-actions' },
         el('span', { class: 'hint', style: 'margin:0' }, '封面不会出现在正文里'),
-        el('button', { class: 'ghost', style: 'padding:4px 10px;font-size:12px', onclick: () => coverInput.click() }, '换一张'),
+        coverInput,
         el('button', { class: 'ghost', style: 'padding:4px 10px;font-size:12px', onclick: () => { entry.coverImageId = null; renderCover(); scheduleSave(); } }, '移除')
       )
     ));
@@ -300,7 +300,11 @@ export async function renderEditor(root, dateISO) {
 
       card.append(el('div', { class: 'blk-bar' },
         block.type === 'text'
-          ? el('button', { class: 'blk-btn', onclick: () => { insertAfter = index; photoInput.click(); } }, '＋图')
+          ? el('button', { class: 'blk-btn', onclick: () => {
+          insertAfter = index;
+          toast('插入点：这一段的后面，点下面「加照片」');
+          document.querySelector('.photo-row')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } }, '＋图')
           : el('button', { class: 'blk-btn', onclick: () => { entry.coverImageId = block.imageId; renderCover(); scheduleSave(); toast('已设为封面'); } }, '封面'),
         block.type === 'text'
           ? el('button', { class: 'blk-btn', onclick: () => { entry.blocks.splice(index + 1, 0, { type: 'text', text: '' }); renderBlocks(); scheduleSave(); } }, '＋段')
@@ -347,10 +351,10 @@ export async function renderEditor(root, dateISO) {
     }
   }, '＋ 段落');
 
-  const addPhotoBtn = el('button', {
-    class: 'ghost',
-    onclick: () => { insertAfter = entry.blocks.length - 1; photoInput.click(); }
-  }, '＋ 照片');
+  const photoRow = el('div', { class: 'photo-row' },
+    el('span', { class: 'photo-row-label' }, '加照片'),
+    photoInput
+  );
 
   const counter = el('span', { class: 'hint', style: 'margin:0' },
     `${charCount(entry)} 字 · ${imageCount(entry)} 张`);
@@ -385,12 +389,10 @@ export async function renderEditor(root, dateISO) {
       el('span', { class: 'label' }, '区域'),
       el('div', { style: 'flex:1' }, regionChips, regionInput)),
     blockList,
-    el('div', { class: 'toolbar-line' }, addTextBtn, addPhotoBtn,
+    el('div', { class: 'toolbar-line' }, addTextBtn, photoRow,
       el('a', { class: 'read-link', href: `#/read/${date}` }, '看一眼 ›')),
     el('div', { class: 'toolbar-line', style: 'margin-top:4px' }, counter),
-    saveHint,
-    photoInput,
-    coverInput
+    saveHint
   );
 
   // ---------- 保存 ----------
