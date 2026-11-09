@@ -824,3 +824,15 @@ body.locked #view { padding-bottom: 20px; }
   flex-wrap: wrap;
 }
 .photo-row-label { font-size: 12px; color: var(--ink-soft); }
+
+.native-file { color: transparent; }
+.native-file::file-selector-button {
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+.cover-empty .native-file,
+.photo-row .native-file { flex: 0 0 auto; }
