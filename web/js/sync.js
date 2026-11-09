@@ -1,29 +1,17 @@
 // 云同步：来回传的都是密文，服务器看不到内容。
 
 import * as db from './db.js';
-import { randomBytes, toB64 } from './crypto.js';
+import { getSession, accountHeaders } from './auth.js';
 
-const TOKEN_KEY = 'syncToken';
 const PUSH_KEY = 'syncPushAt';
 const PULL_KEY = 'syncPullAt';
 const IMG_PUSH_KEY = 'syncImgPushAt';
 const IMG_PULL_KEY = 'syncImgPullAt';
 
-export async function getToken() {
-  return db.getMeta(TOKEN_KEY, null);
-}
-
-export async function enableSync() {
-  const existing = await getToken();
-  if (existing) return existing;
-  const token = toB64(randomBytes(32)).replace(/[^A-Za-z0-9]/g, '').slice(0, 43);
-  await db.setMeta(TOKEN_KEY, token);
-  return token;
-}
-
 async function authHeaders() {
-  const token = await getToken();
-  return { authorization: `Bearer ${token}` };
+  const session = await getSession();
+  if (!session) throw new Error('请先登录账号');
+  return accountHeaders(session);
 }
 
 /**
@@ -31,9 +19,6 @@ async function authHeaders() {
  * progress(text) 用来在界面上显示进度。
  */
 export async function syncNow(progress = () => {}) {
-  const token = await getToken();
-  if (!token) throw new Error('还没有开启云同步');
-
   const headers = await authHeaders();
   const summary = { pushed: 0, pulled: 0, imagesUp: 0, imagesDown: 0 };
 
@@ -135,9 +120,10 @@ export async function syncNow(progress = () => {}) {
 }
 
 export async function syncStatus() {
-  const token = await getToken();
+  const session = await getSession();
   return {
-    enabled: !!token,
+    enabled: !!session,
+    email: session ? session.email : '',
     lastAt: await db.getMeta('syncLastAt', 0)
   };
 }

@@ -5,12 +5,11 @@ let schemaReady = false;
 export async function onRequest(context) {
   const { request, env } = context;
 
-  const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
-  if (!token || token.length < 24) return json({ ok: false, error: '缺少同步码' }, 401);
   if (!env.DB) return json({ ok: false, error: '还没有绑定 D1 数据库', code: 'NO_DB' }, 501);
-
-  const account = await sha256(token);
   await ensureSchema(env.DB);
+
+  const account = await resolveAccount(env, request);
+  if (!account) return json({ ok: false, error: '登录已失效，请重新登录' }, 401);
 
   if (request.method === 'GET') {
     const since = Number(new URL(request.url).searchParams.get('since') || 0);
@@ -73,8 +72,14 @@ async function ensureSchema(db) {
   schemaReady = true;
 }
 
-async function sha256(text) {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+
+async function resolveAccount(env, request) {
+  const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
+  const email = (request.headers.get('x-dusk-account') || '').trim().toLowerCase();
+  if (!token || !email) return null;
+  const row = await env.DB.prepare('SELECT auth_hash FROM accounts WHERE email = ?').bind(email).first();
+  if (!row || row.auth_hash !== token) return null;
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(email));
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 

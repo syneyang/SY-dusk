@@ -934,3 +934,39 @@ body.locked #view { padding-bottom: 20px; }
   color: var(--ink);
 }
 .st-k { font-size: 11px; color: var(--ink-soft); margin-top: 2px; }
+
+/* ---------- 登录 / 注册表单 ---------- */
+
+.lock-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 320px;
+  margin-top: 10px;
+  text-align: left;
+}
+.lock-row-label {
+  flex: 0 0 62px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.lock-field {
+  flex: 1;
+  border: 1px solid var(--hairline);
+  background: var(--card);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 15px;
+  color: var(--ink);
+  font-family: inherit;
+  outline: none;
+  min-width: 0;
+}
+.lock-error {
+  min-height: 18px;
+  font-size: 12px;
+  color: var(--danger);
+  margin-top: 4px;
+}
+.lock .lock-btn { margin-top: 10px; }
