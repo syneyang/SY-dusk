@@ -3,6 +3,7 @@
 import * as db from './db.js';
 import { normalize, plainText, placeName, dedupeRegions } from './model.js';
 import { el, weekdayCN, monthDayCN, fullCN, toast } from './util.js';
+import { renderDayImage, STYLE_LABELS } from './longimage.js';
 
 export async function renderRead(root, dateISO) {
   const entry = normalize(await db.getEntry(dateISO));
@@ -247,6 +248,13 @@ function openMenu(items, meta, dateISO) {
       el('button', { class: 'share-item', onclick: () => { close(); copy(markdown); } }, '复制 Markdown'),
       el('button', {
         class: 'share-item',
+        onclick: () => {
+          close();
+          pickStyleThenShare(entry, dateISO);
+        }
+      }, '生成长图'),
+      el('button', {
+        class: 'share-item',
         onclick: async () => {
           close();
           if (navigator.share) {
@@ -268,5 +276,62 @@ function openMenu(items, meta, dateISO) {
   function close() {
     backdrop.classList.remove('show');
     setTimeout(() => backdrop.remove(), 200);
+  }
+}
+
+// ---------- 生成长图 ----------
+
+function pickStyleThenShare(entry, dateISO) {
+  const panel = el('div', { class: 'sheet', onclick: (event) => event.stopPropagation() },
+    el('div', { class: 'sheet-grip' }),
+    el('div', { class: 'sheet-head' }, el('div', { class: 'sheet-title' }, '用什么样式')),
+    el('div', { class: 'share-list' },
+      ...Object.entries(STYLE_LABELS).map(([key, label]) => el('button', {
+        class: 'share-item',
+        onclick: () => { close(); shareImage(entry, dateISO, key); }
+      }, label))
+    )
+  );
+
+  const backdrop = el('div', { class: 'sheet-backdrop', onclick: close }, panel);
+  document.body.append(backdrop);
+  requestAnimationFrame(() => backdrop.classList.add('show'));
+
+  function close() {
+    backdrop.classList.remove('show');
+    setTimeout(() => backdrop.remove(), 200);
+  }
+}
+
+async function shareImage(entry, dateISO, style) {
+  toast('正在生成…');
+  try {
+    const blobs = await renderDayImage(entry, dateISO, style);
+    if (!blobs.length) throw new Error('没生成出图片');
+
+    const files = blobs.map((blob, index) => new File(
+      [blob],
+      `朝夕-${dateISO}${blobs.length > 1 ? `-${index + 1}` : ''}.jpg`,
+      { type: 'image/jpeg' }
+    ));
+
+    if (navigator.canShare && navigator.canShare({ files })) {
+      await navigator.share({ files });
+      return;
+    }
+
+    for (const file of files) {
+      const url = URL.createObjectURL(file);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name;
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 20000);
+    }
+    toast('已保存');
+  } catch (error) {
+    toast('生成失败：' + (error.message || error));
   }
 }
