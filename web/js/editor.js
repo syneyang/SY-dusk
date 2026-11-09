@@ -128,6 +128,7 @@ export async function renderEditor(root, dateISO) {
       }
     }
 
+    console.log('[dbg] addPlace', name, place.district, place.lat, place.lng);
     const existing = entry.places.find((p) => placeName(p) === name);
     if (existing) {
       if (existing.lat == null && place.lat != null) {
@@ -194,6 +195,7 @@ export async function renderEditor(root, dateISO) {
   }
 
   function renderRegions() {
+    console.log('[dbg] renderRegions', JSON.stringify(entry.regions));
     regionChips.innerHTML = '';
     const keep = new Set(dedupeRegions(entry.regions.map(placeName)));
     for (const region of entry.regions) {
