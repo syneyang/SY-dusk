@@ -95,13 +95,18 @@ export async function renderSettings(root) {
   ));
 
   // 存储
-  let storageText = '占用空间：—';
-  if (estimate) {
-    storageText = `占用空间：约 ${(estimate.usage / 1048576).toFixed(1)} MB`;
-  }
+  const usage = await dataUsage();
+  const realMB = (usage.bytes / 1048576).toFixed(1);
+  const reportedMB = estimate ? (estimate.usage / 1048576).toFixed(1) : null;
+
   root.append(el('div', { class: 'card' },
     el('h3', {}, '存储'),
-    el('div', { class: 'hint', style: 'margin-top:0' }, storageText),
+    el('div', { class: 'hint', style: 'margin-top:0' },
+      `日记 ${usage.entries} 篇 · 照片 ${usage.images} 张 · 数据约 ${realMB} MB`),
+    el('div', { class: 'hint' },
+      reportedMB
+        ? `浏览器报告的占用是 ${reportedMB} MB，这个数包含缓存和已删除但还没回收的空间，会偏大，看上面那行更准。`
+        : ''),
     el('div', { class: 'hint' },
       '数据只存在这台设备的浏览器里。清空浏览器的网站数据会一起清掉，换手机之前一定先导出。')
   ));
@@ -194,6 +199,19 @@ export async function renderSettings(root) {
 
   root.append(el('div', { class: 'hint', style: 'text-align:center;margin-top:22px' },
     `朝夕 v${APP_VERSION} · 只给自己用的日记本`));
+}
+
+/** 真实数据量：把存的密文长度加一遍（base64 长度 × 0.75 ≈ 字节数）。 */
+async function dataUsage() {
+  const entries = await db.rawEntries();
+  const images = await db.rawImages();
+  let chars = 0;
+  for (const entry of entries) chars += (entry.blob && entry.blob.ct ? entry.blob.ct.length : 0);
+  for (const image of images) {
+    chars += (image.blob && image.blob.ct ? image.blob.ct.length : 0);
+    chars += (image.thumb && image.thumb.ct ? image.thumb.ct.length : 0);
+  }
+  return { bytes: Math.round(chars * 0.75), entries: entries.length, images: images.length };
 }
 
 async function orphanCounts() {
