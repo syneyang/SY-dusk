@@ -1,6 +1,6 @@
 // 离线缓存：先给出缓存里的外壳，再后台更新。
 
-const CACHE = 'dusk-v32';
+const CACHE = 'dusk-v33';
 
 const ASSETS = [
   './',

@@ -83,22 +83,13 @@ export async function renderRead(root, dateISO) {
   // ---------- 元信息 ----------
   const metaHost = el('div', { class: 'read-meta' });
   root.append(metaHost);
-  let metaExpanded = false;
-
   function renderMeta() {
     metaHost.innerHTML = '';
 
     if (places.length) {
-      const shown = metaExpanded ? places : places.slice(0, 3);
       metaHost.append(el('div', { class: 'read-meta-line' },
         el('span', { class: 'read-meta-key' }, '去了'),
-        el('span', { class: 'read-meta-val' }, shown.join(' · ')),
-        places.length > 3
-          ? el('button', {
-              class: 'read-meta-more',
-              onclick: () => { metaExpanded = !metaExpanded; renderMeta(); }
-            }, metaExpanded ? '收起' : `+${places.length - 3}`)
-          : null
+        el('span', { class: 'read-meta-val' }, places.join(' · '))
       ));
     }
 
