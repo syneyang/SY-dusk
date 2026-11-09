@@ -325,6 +325,9 @@ function registerScreen(root, masterRaw, { upgrading, prefillEmail = '' }) {
         throw error;
       }
       await db.deleteMeta('vault');
+      if (!(await db.getMeta('journeyStart', null))) {
+        await db.setMeta('journeyStart', new Date().toISOString().slice(0, 10));
+      }
       master = masterRaw;
     }
   }).then((result) => (result === true ? master : result));

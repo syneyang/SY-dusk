@@ -6,9 +6,12 @@ import { el, toast, fullCN, weekdayCN, todayISO, confirmAction, APP_VERSION } fr
 import { lockNow, changePasscodeFlow } from './lock.js';
 import { syncNow, syncStatus } from './sync.js';
 import { signOut } from './auth.js';
+import { createZip } from './zip.js';
 
 export async function renderSettings(root) {
-  const journeyStart = await db.getMeta('journeyStart', '2027-01-01');
+  const entriesAll = (await db.allEntries()).map(normalize);
+  const earliest = entriesAll.map((e) => e.date).sort()[0];
+  const journeyStart = await db.getMeta('journeyStart', earliest || todayISO());
   const lastBackup = await db.getMeta('lastBackup', null);
   const sync = await syncStatus();
   const usage = await dataUsage();
@@ -79,13 +82,18 @@ export async function renderSettings(root) {
       toast('已保存');
     }
   });
+  const dayIndex = Math.floor((Date.parse(todayISO()) - Date.parse(journeyStart)) / 86400000) + 1;
+
   root.append(group('日记', [
     row({
       label: '旅程开始',
       value: `${journeyStart.slice(0, 4)}年${Number(journeyStart.slice(5, 7))}月${Number(journeyStart.slice(8, 10))}日`,
       picker: dateInput
     })
-  ], el('div', { class: 'set-note' }, '「第几天」按这个日期算。')));
+  ], el('div', { class: 'set-note' },
+    dayIndex > 0
+      ? `今天是第 ${dayIndex} 天。默认从你创建账号那天算，点上面那行可以改。`
+      : '默认从创建账号那天算，点上面那行可以改。')));
 
   // ---------- 备份 ----------
   const fileInput = el('input', { type: 'file', accept: 'application/json,.json' });
@@ -115,11 +123,23 @@ export async function renderSettings(root) {
       }
     }),
     row({
-      label: '导出 HTML 单文件',
-      value: '直接可读',
+      label: '导出今年（ZIP）',
+      value: 'HTML + 照片',
       onClick: async () => {
         try {
-          await exportHTML();
+          await exportYearZip(Number(todayISO().slice(0, 4)));
+          toast('已开始打包');
+        } catch (error) {
+          toast('导出失败：' + (error.message || error));
+        }
+      }
+    }),
+    row({
+      label: '导出全部（仅文字）',
+      value: '单个 HTML',
+      onClick: async () => {
+        try {
+          await exportTextOnly();
           toast('已开始下载');
         } catch (error) {
           toast('导出失败：' + (error.message || error));
@@ -340,22 +360,14 @@ async function importJSON(file) {
   return { added, updated };
 }
 
-async function exportHTML() {
-  const entries = (await db.allEntries()).map(normalize).sort((a, b) => a.date.localeCompare(b.date));
+function buildHTML(entries, imageMap) {
   const parts = [];
 
   for (const entry of entries) {
-    const imagesByBlock = [];
-    for (const id of imageIds(entry)) {
-      const record = await db.getImage(id);
-      if (record) imagesByBlock.push([id, await blobToDataURL(record.blob)]);
-    }
-    const imageMap = new Map(imagesByBlock);
-
     const body = entry.blocks.map((block) => {
       if (block.type === 'image') {
-        const data = imageMap.get(block.imageId);
-        return data ? `<img src="${data}" alt="">` : '';
+        const src = imageMap ? imageMap.get(block.imageId) : null;
+        return src ? `<img src="${src}" alt="">` : '';
       }
       return block.text.split('\n').filter(Boolean).map((line) => `<p>${escapeHTML(line)}</p>`).join('');
     }).join('');
@@ -369,9 +381,9 @@ async function exportHTML() {
     </article>`);
   }
 
-  const html = `<!doctype html><html lang="zh-CN"><meta charset="utf-8">
+  return `<!doctype html><html lang="zh-CN"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>朝夕 · 全部日记</title>
+<title>朝夕 · ${entries.length} 天</title>
 <style>
   body{max-width:680px;margin:40px auto;padding:0 20px;background:#f9f4ec;color:#2b2620;
        font-family:-apple-system,"PingFang SC",sans-serif;line-height:1.85;font-size:16px}
@@ -388,8 +400,46 @@ async function exportHTML() {
 <div class="sub">${entries.length} 天 · 导出于 ${todayISO()}</div>
 ${parts.join('\n')}
 </html>`;
+}
 
-  download(new Blob([html], { type: 'text/html' }), `朝夕-全部日记-${todayISO()}.html`);
+/** 按年打包：index.html + images/，一个 ZIP 里，几十 MB 也打得开。 */
+async function exportYearZip(year) {
+  const entries = (await db.allEntries())
+    .map(normalize)
+    .filter((entry) => entry.date.startsWith(String(year)))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  if (!entries.length) throw new Error('这一年还没有日记');
+
+  const imageMap = new Map();
+  const files = [];
+  let index = 0;
+
+  for (const entry of entries) {
+    for (const id of imageIds(entry)) {
+      if (imageMap.has(id)) continue;
+      const record = await db.getImage(id);
+      if (!record) continue;
+      const ext = (record.mime || 'image/jpeg').includes('png') ? 'png' : 'jpg';
+      const name = `images/${String(++index).padStart(3, '0')}.${ext}`;
+      imageMap.set(id, name);
+      files.push({ name, data: new Uint8Array(await record.blob.arrayBuffer()) });
+    }
+  }
+
+  files.unshift({
+    name: 'index.html',
+    data: new TextEncoder().encode(buildHTML(entries, imageMap))
+  });
+
+  download(createZip(files), `朝夕-${year}.zip`);
+  await db.setMeta('lastBackup', Date.now());
+}
+
+/** 全部日记，只有文字，单个 HTML，很小。 */
+async function exportTextOnly() {
+  const entries = (await db.allEntries()).map(normalize).sort((a, b) => a.date.localeCompare(b.date));
+  download(new Blob([buildHTML(entries, null)], { type: 'text/html' }), `朝夕-全部日记-${todayISO()}.html`);
   await db.setMeta('lastBackup', Date.now());
 }
 
