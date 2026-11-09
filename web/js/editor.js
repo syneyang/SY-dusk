@@ -117,7 +117,10 @@ export async function renderEditor(root, dateISO) {
     if (!entry.places.some((p) => placeName(p) === name)) {
       entry.places.push({ name, district: place.district || '', lat: place.lat ?? null, lng: place.lng ?? null });
     }
-    if (place.district) addRegionOnce(place.district);
+    if (place.district) {
+      addRegionOnce(place.district);
+      renderRegions();
+    }
     refineRegion(place);
     scheduleSave();
   }
@@ -137,6 +140,7 @@ export async function renderEditor(root, dateISO) {
       scheduleSave();
     } catch {
       // 拿不到街道就保留区县
+      renderRegions();
     }
   }
 
