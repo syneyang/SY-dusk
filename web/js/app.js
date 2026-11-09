@@ -70,13 +70,22 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('pagehide', flushSave);
 
 async function boot() {
-  const unlocked = await requireUnlock(view);
-  if (!unlocked) return;
-  startAutoLock();
-  route();
+  try {
+    const unlocked = await requireUnlock(view);
+    if (!unlocked) return;
+    startAutoLock();
+    await route();
 
-  // 解锁后顺手同步一次（失败不影响使用）
-  syncNow().catch(() => {});
+    // 解锁后顺手同步一次（失败不影响使用）
+    syncNow().catch(() => {});
+  } catch (error) {
+    console.error(error);
+    view.innerHTML = '';
+    view.append(Object.assign(document.createElement('div'), {
+      className: 'empty',
+      textContent: '启动出错：' + (error && error.message ? error.message : error)
+    }));
+  }
 }
 
 boot();
