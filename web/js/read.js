@@ -371,6 +371,8 @@ function showPreview(blobs, dateISO, files) {
 
 /** 一天的天气趋势：一条温度折线，下面标时间和天气。 */
 function weatherTrend(points) {
+  const cities = new Set(points.map((p) => p.city || '').filter(Boolean));
+  const multiCity = cities.size > 1;
   const W = 320;
   const H = 46;
   const pad = 10;
@@ -396,7 +398,7 @@ function weatherTrend(points) {
   for (let i = 0; i < dots.length - 1; i++) {
     const a = dots[i];
     const b = dots[i + 1];
-    const crossing = a.point.city && b.point.city && a.point.city !== b.point.city;
+    const crossing = multiCity && a.point.city && b.point.city && a.point.city !== b.point.city;
 
     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
     line.setAttribute('x1', a.x);
@@ -422,7 +424,7 @@ function weatherTrend(points) {
   const labels = el('div', { class: 'sky-labels' },
     ...dots.map((dot, index) => {
       const prev = dots[index - 1] ? dots[index - 1].point : null;
-      const city = dot.point.city && (!prev || prev.city !== dot.point.city) ? dot.point.city : '';
+      const city = multiCity && dot.point.city && (!prev || prev.city !== dot.point.city) ? dot.point.city : '';
       return el('span', {},
         el('b', {}, dot.point.time),
         el('span', {}, [city, dot.point.sky, dot.point.temp == null ? '' : `${dot.point.temp}℃`].filter(Boolean).join(' '))
