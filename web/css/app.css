@@ -1152,3 +1152,23 @@ button.set-row:active { background: var(--dawn-soft); }
 .sky-labels > span:last-child { transform: translateX(-92%); }
 .sky-labels > span > b { font-weight: 500; font-variant-numeric: tabular-nums; }
 .sky-labels > span > span { font-size: 11px; }
+
+/* ---------- 崩溃/错误信息 ---------- */
+
+.crash {
+  margin: 18px 0;
+  padding: 16px;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: var(--card);
+}
+.crash-title { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+.crash-detail {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: ui-monospace, Menlo, monospace;
+}

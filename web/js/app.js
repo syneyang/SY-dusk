@@ -93,14 +93,50 @@ async function boot() {
     // 解锁后顺手同步一次（失败不影响使用）
     syncNow().catch(() => {});
   } catch (error) {
-    console.error(error);
-    view.innerHTML = '';
-    view.append(Object.assign(document.createElement('div'), {
-      className: 'empty',
-      textContent: '启动出错：' + (error && error.message ? error.message : error)
-    }));
+    showCrash('启动出错', error);
   }
 }
+
+function showCrash(title, error) {
+  console.error(error);
+  const view = document.getElementById('view');
+  const stack = String((error && error.stack) || '').split('\n').slice(0, 4).join('\n');
+  const detail = `${error && error.name || 'Error'}: ${error && error.message || error}`;
+  const ua = navigator.userAgent.slice(0, 120);
+
+  const text = `${title}\n${detail}\n${stack}\n${ua}`;
+  const box = document.createElement('div');
+  box.className = 'crash';
+  box.innerHTML = '<div class="crash-title"></div><pre class="crash-detail"></pre>';
+  box.querySelector('.crash-title').textContent = title;
+  box.querySelector('.crash-detail').textContent = `${detail}\n${stack}\n\n${ua}`;
+
+  const copy = document.createElement('button');
+  copy.className = 'lock-btn';
+  copy.textContent = '复制错误信息';
+  copy.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      copy.textContent = '已复制';
+    } catch {
+      copy.textContent = '复制失败';
+    }
+  };
+
+  view.innerHTML = '';
+  view.append(box, copy);
+}
+
+window.addEventListener('error', (event) => {
+  if (document.body.classList.contains('locked') && document.querySelector('.key')) return;
+  if (document.querySelector('.crash')) return;
+  showCrash('运行出错', event.error || new Error(event.message));
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  if (document.querySelector('.crash')) return;
+  showCrash('异步出错', event.reason || new Error('未知原因'));
+});
 
 boot();
 
