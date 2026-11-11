@@ -470,7 +470,8 @@ export async function renderEditor(root, dateISO) {
         el('div', { style: 'display:flex;align-items:center;gap:8px' },
           weatherInput,
           isToday
-            ? el('button', { class: 'ghost', style: 'padding:4px 9px;font-size:12px', onclick: () => requestWeather(true) }, '📍')
+            ? el('button', { class: 'ghost icon-btn', onclick: () => requestWeather(true), title: '定位取天气' },
+              el('span', { html: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s6.5-5.6 6.5-10.2A6.5 6.5 0 0 0 5.5 10.8C5.5 15.4 12 21 12 21z"/><circle cx="12" cy="10.6" r="2.3"/></svg>' }))
             : null),
         weatherLog)),
     weatherHint,

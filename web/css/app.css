@@ -73,7 +73,8 @@ body { min-height: 100vh; overscroll-behavior-x: none; }
   color: var(--ink-soft);
   text-decoration: none;
 }
-.tabbar a .ico { font-size: 19px; line-height: 1; }
+.tabbar a .ico { font-size: 19px; line-height: 1; display: flex; align-items: center; justify-content: center; height: 22px; }
+.tabbar a .ico svg { width: 22px; height: 22px; display: block; }
 .tabbar a.active { color: var(--dawn); }
 
 h1, h2, h3 { font-family: "Songti SC", "STSong", Georgia, serif; font-weight: 600; }
@@ -1189,3 +1190,13 @@ button.set-row:active { background: var(--dawn-soft); }
   0% { background-position: 100% 0; }
   100% { background-position: 0 0; }
 }
+
+/* 图标按钮（定位等） */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 8px;
+  line-height: 1;
+}
+.icon-btn svg { display: block; }
