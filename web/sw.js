@@ -51,6 +51,7 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  if (url.pathname.startsWith('/.well-known/')) return;
 
   // 先联网拿最新的，断网时退回缓存（这样改代码不用手动清缓存）
   event.respondWith(

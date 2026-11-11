@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.syneyang.dusk",
+    "sha256_cert_fingerprints": [
+      "DC:80:93:6C:98:43:69:51:2A:5E:1D:01:37:99:AE:07:9B:C6:ED:DF:BE:9E:79:B1:B2:73:5E:47:BA:D9:F8:0C"
+    ]
+  }
+}]
