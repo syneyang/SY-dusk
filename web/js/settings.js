@@ -171,7 +171,7 @@ export async function renderSettings(root) {
       }
     })
   ], el('div', { class: 'set-note' },
-    estimate
+    estimate && !isNativeApp()
       ? `浏览器报告的占用是 ${(estimate.usage / 1048576).toFixed(1)} MB，包含缓存和已删除但没回收的空间，会偏大。`
       : '')));
 
@@ -208,6 +208,14 @@ export async function renderSettings(root) {
 }
 
 // ---------- 小组件 ----------
+
+/** 是不是装成了 App（Capacitor / TWA），是的话少讲浏览器的事。 */
+function isNativeApp() {
+  try {
+    if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) return true;
+  } catch {}
+  return false;
+}
 
 function group(title, rows, note) {
   return el('div', { class: 'set-group' },
