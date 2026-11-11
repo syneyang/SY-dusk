@@ -1,7 +1,7 @@
 // 时光：按年月分组的列表，可搜索。
 
 import * as db from './db.js';
-import { normalize, firstLine, imageIds, charCount, plainText, placeName } from './model.js';
+import { normalize, firstLine, imageIds, charCount, plainText, placeName, weatherSummary } from './model.js';
 import { el, monthTitle, weekdayCN, debounce } from './util.js';
 
 export async function renderList(root) {
