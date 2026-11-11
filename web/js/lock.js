@@ -358,6 +358,26 @@ export async function openSignIn(root) {
   return true;
 }
 
+/** 危险操作前：让用户确认 6 位密码。没设过密码就放行。 */
+export async function verifyPasscode(root) {
+  const localLock = await db.getMeta('localLock', null);
+  if (!localLock) return true;
+
+  const code = await passcodeScreen(root, {
+    title: '确认身份',
+    subtitle: '输入 6 位密码后才能继续'
+  });
+  if (!code || code === '__forgot__' || code === null) return false;
+
+  try {
+    const kek = await crypto.deriveKEK(code, crypto.fromB64(localLock.salt), localLock.iterations);
+    await crypto.unwrapMasterKey(localLock.wrapped, kek);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function lockNow() {
   forgetSession();
   location.hash = '#/today';

@@ -3,7 +3,7 @@
 import * as db from './db.js';
 import { normalize, plainText, imageIds, charCount, placeName } from './model.js';
 import { el, toast, fullCN, weekdayCN, todayISO, confirmAction, APP_VERSION } from './util.js';
-import { lockNow, changePasscodeFlow, openSignIn } from './lock.js';
+import { lockNow, changePasscodeFlow, openSignIn, verifyPasscode } from './lock.js';
 import { syncNow, syncStatus } from './sync.js';
 import { signOut } from './auth.js';
 import { createZip } from './zip.js';
@@ -181,7 +181,20 @@ export async function renderSettings(root) {
       label: '清空全部日记和照片',
       danger: true,
       onClick: async () => {
-        if (!confirmAction('清空全部日记和照片？这个操作无法撤销。')) return;
+        const ok = await verifyPasscode(root);
+        if (!ok) {
+          toast('密码不对，已取消');
+          await renderSettings(root);
+          return;
+        }
+        if (!confirmAction('清空全部日记和照片？这个操作无法撤销。')) {
+          await renderSettings(root);
+          return;
+        }
+        if (!confirmAction('最后确认：删除后找不回来，真的要清空吗？')) {
+          await renderSettings(root);
+          return;
+        }
         await db.clearAll();
         toast('已清空');
         location.hash = '#/today';
