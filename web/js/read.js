@@ -21,7 +21,11 @@ export async function renderRead(root, dateISO) {
   for (const block of entry.blocks) {
     if (block.type === 'image') {
       const record = await db.getImage(block.imageId);
-      if (!record) continue;
+      if (!record) {
+        // 照片还没下载：先占个位，打开到这儿再单独拉
+        items.push({ type: 'image', id: block.imageId, url: '', pending: true, takenAt: null, place: '' });
+        continue;
+      }
       const url = URL.createObjectURL(record.blob);
       urls.push(url);
       items.push({
@@ -174,9 +178,16 @@ export async function renderRead(root, dateISO) {
     }, isCover ? '✓ 封面' : '设为封面');
 
     const caption = captionFor(image);
+    const img = el('img', { src: image.url || '', alt: '', loading: 'lazy' });
+
+    if (image.pending) {
+      img.classList.add('loading');
+      loadPhoto(image.id, img).catch(() => {});
+    }
+
     return el('figure', { class: 'read-figure' },
-      el('img', { src: image.url, alt: '', loading: 'lazy' }),
-      el('figcaption', {}, el('span', {}, caption), coverBtn)
+      img,
+      el('figcaption', {}, el('span', {}, caption), image.pending ? null : coverBtn)
     );
   }
 }
@@ -449,4 +460,14 @@ function weatherTrend(points) {
     el('span', { class: 'read-meta-key' }, ''),
     el('div', { class: 'sky-box' }, svg, labels)
   );
+}
+
+/** 读页打开到某张还没下载的照片时，只拉这一张。 */
+async function loadPhoto(id, img) {
+  const { downloadImage } = await import('./sync.js');
+  const record = await downloadImage(id);
+  if (!record || !img.isConnected) return;
+  const url = URL.createObjectURL(record.blob);
+  img.src = url;
+  img.classList.remove('loading');
 }

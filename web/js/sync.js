@@ -32,12 +32,12 @@ export function syncStatusLabel() {
   return running ? '同步中…' : '';
 }
 
-export async function syncNow(progress = () => {}) {
+export async function syncNow(progress = () => {}, options = {}) {
   if (running) {
     rerun = true;
     return running;
   }
-  running = doSync(progress).finally(() => {
+  running = doSync(progress, options).finally(() => {
     running = null;
     if (rerun) {
       rerun = false;
@@ -47,7 +47,9 @@ export async function syncNow(progress = () => {}) {
   return running;
 }
 
-async function doSync(progress = () => {}) {
+async function doSync(progress = () => {}, options = {}) {
+  const withImages = options.images !== false;
+  const imageBatch = options.imageBatch || 25;
   const headers = await authHeaders();
   const summary = { pushed: 0, pulled: 0, imagesUp: 0, imagesDown: 0 };
 
@@ -96,6 +98,10 @@ async function doSync(progress = () => {}) {
   }
   await db.setMeta(PULL_KEY, Date.now());
 
+  if (!withImages) {
+    return summary;
+  }
+
   // ---------- 3. 推本地照片 ----------
   // 只传真被日记引用的照片，孤儿照片（试插没保存成功的）不往云上传
   const imgPushFrom = await db.getMeta(IMG_PUSH_KEY, 0);
@@ -142,13 +148,16 @@ async function doSync(progress = () => {}) {
   const manifestData = await manifestResponse.json();
   if (!manifestData.ok) throw new Error(manifestData.error || '照片清单拉取失败');
 
+  let downloaded = 0;
   for (const remote of manifestData.images || []) {
+    if (downloaded >= imageBatch) break;
     if (await db.hasImage(remote.id)) continue;
     progress('下载照片…');
     const blobResponse = await fetch(`/api/images?id=${encodeURIComponent(remote.id)}`, { headers });
     if (!blobResponse.ok) continue;
     const record = await blobResponse.json();
     await db.putRawImage(record);
+    downloaded += 1;
     summary.imagesDown += 1;
   }
   await db.setMeta(IMG_PULL_KEY, Date.now());
@@ -164,4 +173,16 @@ export async function syncStatus() {
     email: session ? session.email : '',
     lastAt: await db.getMeta('syncLastAt', 0)
   };
+}
+
+/** 单张照片按需下载（读页打开到哪张就拉哪张）。 */
+export async function downloadImage(id) {
+  if (!id || (await db.hasImage(id))) return null;
+  const headers = await authHeaders();
+  const response = await fetch(`/api/images?id=${encodeURIComponent(id)}`, { headers });
+  if (!response.ok) return null;
+  const record = await response.json();
+  if (!record || !record.id) return null;
+  await db.putRawImage(record);
+  return db.getImage(id);
 }

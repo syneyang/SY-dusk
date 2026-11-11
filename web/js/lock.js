@@ -119,14 +119,14 @@ async function finish(masterRaw) {
 function pullFromCloud() {
   const view = document.getElementById('view');
   return new Promise((resolve) => {
-    const note = el('div', { class: 'lock-note' }, '正在从云端拉取你的日记…');
+    const note = el('div', { class: 'lock-note' }, '正在拉取日记文字，照片会随后自动下载…');
     view.innerHTML = '';
     view.append(el('div', { class: 'lock' },
       el('div', { class: 'lock-logo' }, '朝夕'),
       el('div', { class: 'lock-title' }, '换台设备，日记也跟过来'),
       note
     ));
-    syncNow((text) => { note.textContent = text; })
+    syncNow((text) => { note.textContent = text; }, { images: false })
       .then(() => resolve())
       .catch((error) => {
         note.textContent = '拉取失败：' + (error.message || error) + '（进去后可以在设置里手动同步）';
