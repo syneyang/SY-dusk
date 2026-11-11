@@ -413,10 +413,14 @@ function weatherTrend(points) {
   }
 
   const labels = el('div', { class: 'sky-labels' },
-    ...dots.map((dot) => el('span', {},
-      el('b', {}, dot.point.time),
-      el('span', {}, [dot.point.sky, dot.point.temp == null ? '' : `${dot.point.temp}℃`].filter(Boolean).join(' '))
-    ))
+    ...dots.map((dot, index) => {
+      const prev = dots[index - 1] ? dots[index - 1].point : null;
+      const city = dot.point.city && (!prev || prev.city !== dot.point.city) ? dot.point.city : '';
+      return el('span', {},
+        el('b', {}, dot.point.time),
+        el('span', {}, [city, dot.point.sky, dot.point.temp == null ? '' : `${dot.point.temp}℃`].filter(Boolean).join(' '))
+      );
+    })
   );
 
   return el('div', { class: 'read-meta-line sky-line' },

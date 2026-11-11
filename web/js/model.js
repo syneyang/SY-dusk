@@ -170,6 +170,7 @@ export function weatherPoints(entry) {
       time: reading.time || '',
       sky: (match ? match[1] : text).trim(),
       temp: match && match[2] != null ? Number(match[2]) : null,
+      city: reading.city || '',
       ts: reading.ts || 0
     };
   }).filter((point) => point.sky || point.temp != null);
@@ -192,23 +193,33 @@ export function weatherSummary(entry) {
   const points = weatherPoints(entry);
   if (!points.length) return '';
 
-  const skies = [];
+  // 一天跑了几个城市，就按城市分开写
+  const segments = [];
   for (const point of points) {
-    if (!point.sky) continue;
-    if (skies[skies.length - 1] !== point.sky) skies.push(point.sky);
+    const city = point.city || '';
+    const last = segments[segments.length - 1];
+    if (last && last.city === city) last.points.push(point);
+    else segments.push({ city, points: [point] });
   }
 
-  const temps = points.map((p) => p.temp).filter((t) => t != null);
-  const min = temps.length ? Math.min(...temps) : null;
-  const max = temps.length ? Math.max(...temps) : null;
+  const describe = (segment) => {
+    const skies = [];
+    for (const point of segment.points) {
+      if (point.sky && skies[skies.length - 1] !== point.sky) skies.push(point.sky);
+    }
+    const temps = segment.points.map((p) => p.temp).filter((t) => t != null);
+    const min = temps.length ? Math.min(...temps) : null;
+    const max = temps.length ? Math.max(...temps) : null;
 
-  const skyText = skies.length === 0
-    ? ''
-    : skies.length === 1
-      ? skies[0]
-      : `${skies[0]}转${skies[skies.length - 1]}`;
+    const skyText = skies.length === 0
+      ? ''
+      : skies.length === 1
+        ? skies[0]
+        : `${skies[0]}转${skies[skies.length - 1]}`;
+    const tempText = min == null ? '' : min === max ? `${min}℃` : `${min}~${max}℃`;
 
-  const tempText = min == null ? '' : min === max ? `${min}℃` : `${min}~${max}℃`;
+    return [segment.city, [skyText, tempText].filter(Boolean).join(' ')].filter(Boolean).join(' ');
+  };
 
-  return [skyText, tempText].filter(Boolean).join(' ');
+  return segments.map(describe).filter(Boolean).join(' · ');
 }

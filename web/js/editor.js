@@ -566,9 +566,12 @@ export async function renderEditor(root, dateISO) {
     const readings = entry.weatherReadings;
     const last = readings[readings.length - 1];
     if (last && Date.now() - last.ts < 10 * 60 * 1000) {
-      last.time = time; last.display = payload.display; last.ts = Date.now();
+      last.time = time;
+      last.display = payload.display;
+      last.ts = Date.now();
+      if (payload.city) last.city = payload.city;
     } else {
-      readings.push({ time, display: payload.display, ts: Date.now() });
+      readings.push({ time, display: payload.display, ts: Date.now(), city: payload.city || '' });
     }
     if (!weatherInput.value.trim()) { weatherInput.value = payload.display; entry.weather = payload.display; }
     if (payload.district) { addRegionOnce(payload.district); renderRegions(); }
