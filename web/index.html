@@ -17,8 +17,14 @@
 <link rel="stylesheet" href="css/app.css" />
   <style>
     /* 键盘关键样式内联：不依赖 app.css，避免被 WebView 缓存拖住 */
-    .lock-dots { display: flex !important; justify-content: center !important; gap: 22px !important; margin: 16px 0 6px !important; }
-    .lock-dots span { width: 13px !important; height: 13px !important; border-radius: 50% !important; border: 1px solid #6b625a !important; }
+    .lock-dots { display: flex !important; justify-content: center !important; margin: 18px 0 8px !important; }
+    .lock-dots span {
+      width: 14px !important; height: 14px !important;
+      border-radius: 50% !important;
+      border: 1px solid #6b625a !important;
+      margin: 0 12px !important;
+      box-sizing: border-box !important;
+    }
     .lock-dots span.on { background: #cd6f3a !important; border-color: #cd6f3a !important; }
     .key {
       -webkit-appearance: none !important;

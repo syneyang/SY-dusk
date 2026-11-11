@@ -671,12 +671,13 @@ body.reading #view { padding-bottom: 40px; }
 .lock-dots {
   display: flex;
   justify-content: center;
-  gap: 22px;
-  margin: 16px 0 6px;
+  margin: 18px 0 8px;
 }
 .lock-dots span {
-  width: 13px; height: 13px; border-radius: 50%;
+  width: 14px; height: 14px; border-radius: 50%;
   border: 1px solid var(--ink-soft);
+  margin: 0 12px;
+  box-sizing: border-box;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 .lock-dots span.on { background: var(--dawn); border-color: var(--dawn); }
