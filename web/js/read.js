@@ -408,24 +408,37 @@ function weatherTrend(points) {
     line.setAttribute('stroke', 'currentColor');
     line.setAttribute('stroke-width', '1.5');
     line.setAttribute('stroke-linecap', 'round');
-    if (crossing) line.setAttribute('stroke-dasharray', '3 4');
+    if (crossing) {
+      line.setAttribute('stroke-dasharray', '4 5');
+      line.setAttribute('opacity', '0.45');
+    }
     svg.append(line);
   }
 
-  for (const dot of dots) {
+  dots.forEach((dot, index) => {
+    const prev = dots[index - 1];
+    const switched = multiCity && prev && dot.point.city && prev.point.city && dot.point.city !== prev.point.city;
     const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     circle.setAttribute('cx', dot.x);
     circle.setAttribute('cy', dot.y);
-    circle.setAttribute('r', '2.6');
-    circle.setAttribute('fill', 'currentColor');
+    circle.setAttribute('r', switched ? '3.2' : '2.6');
+    if (switched) {
+      circle.setAttribute('fill', 'var(--paper)');
+      circle.setAttribute('stroke', 'currentColor');
+      circle.setAttribute('stroke-width', '1.5');
+    } else {
+      circle.setAttribute('fill', 'currentColor');
+    }
     svg.append(circle);
-  }
+  });
 
   const labels = el('div', { class: 'sky-labels' },
     ...dots.map((dot, index) => {
       const prev = dots[index - 1] ? dots[index - 1].point : null;
       const city = multiCity && dot.point.city && (!prev || prev.city !== dot.point.city) ? dot.point.city : '';
-      return el('span', {},
+      return el('span', {
+        style: `left:${(dot.x / W) * 100}%`
+      },
         el('b', {}, dot.point.time),
         el('span', {}, [city, dot.point.sky, dot.point.temp == null ? '' : `${dot.point.temp}℃`].filter(Boolean).join(' '))
       );
