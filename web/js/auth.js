@@ -34,8 +34,8 @@ export async function deriveKeys(password, saltBytes, iterations = ITERATIONS) {
   return { authHash, wrapKey };
 }
 
-async function call(body) {
-  const response = await fetch('/api/auth', {
+async function call(body, path = '/api/auth') {
+  const response = await fetch(path, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body)
@@ -133,7 +133,7 @@ export async function applyReset(email, token, password, masterRaw) {
     authHash,
     wrapped,
     iterations: ITERATIONS
-  });
+  }, '/api/recover');
   if (!data.ok) throw new Error(data.error || '重设失败');
 
   await db.setMeta(SESSION_KEY, { email: clean, authHash, salt: toB64(salt), iterations: ITERATIONS });
@@ -149,18 +149,18 @@ export async function uploadEscrow(masterRaw, authHashState) {
     email: session.email,
     authHash: session.authHash,
     master: toB64(masterRaw)
-  });
+  }, '/api/recover');
   return !!data.ok;
 }
 
 export async function recoveryStatus(email) {
-  return call({ action: 'status', email: normalizeEmail(email) });
+  return call({ action: 'status', email: normalizeEmail(email) }, '/api/recover');
 }
 
 export async function startRecovery(email) {
-  return call({ action: 'start', email: normalizeEmail(email) });
+  return call({ action: 'start', email: normalizeEmail(email) }, '/api/recover');
 }
 
 export async function verifyRecovery(email, code) {
-  return call({ action: 'verify', email: normalizeEmail(email), code });
+  return call({ action: 'verify', email: normalizeEmail(email), code }, '/api/recover');
 }
