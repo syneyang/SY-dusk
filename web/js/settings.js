@@ -3,7 +3,7 @@
 import * as db from './db.js';
 import { normalize, plainText, imageIds, charCount, placeName } from './model.js';
 import { el, toast, fullCN, weekdayCN, todayISO, confirmAction, APP_VERSION } from './util.js';
-import { lockNow, changePasscodeFlow } from './lock.js';
+import { lockNow, changePasscodeFlow, openSignIn } from './lock.js';
 import { syncNow, syncStatus } from './sync.js';
 import { signOut } from './auth.js';
 import { createZip } from './zip.js';
@@ -52,7 +52,18 @@ export async function renderSettings(root) {
       }
     }));
   } else {
-    accountRows.push(row({ label: '登录 / 注册', value: '重启 App 后可选', disabled: true }));
+    accountRows.push(row({
+      label: '登录到云端',
+      value: '点这里登录',
+      onClick: async () => {
+        const signedIn = await openSignIn(root);
+        if (signedIn) {
+          toast('已登录，开始同步');
+          await renderSettings(root);
+          syncNow().catch(() => {});
+        }
+      }
+    }));
   }
 
   root.append(group('账号', accountRows, syncStatusLine));

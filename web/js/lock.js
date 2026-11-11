@@ -48,6 +48,13 @@ async function finish(masterRaw) {
     // 拉不下来也先让用户进去
   }
 
+  try {
+    const session = await auth.getSession();
+    if (session && !(await db.getMeta('vaultEmail', null))) {
+      await db.setMeta('vaultEmail', session.email);
+    }
+  } catch {}
+
   document.body.classList.remove('locked');
 }
 
@@ -247,6 +254,34 @@ export async function changePasscodeFlow(root) {
   const masterRaw = await passcodeGate(root, localLock);
   if (!masterRaw) return false;
   await ensureLocalPasscode(root, masterRaw);
+  return true;
+}
+
+/** 设置页里「登录」：只允许登录这台设备原来的账号。 */
+export async function openSignIn(root) {
+  const current = await auth.getSession();
+  if (current) {
+    toast(`已经登录：${current.email}`);
+    return false;
+  }
+
+  const master = await loginWithEmail(root);
+  if (!master || !(master instanceof Uint8Array)) {
+    if (master && master.switch === 'register') {
+      toast('这台设备已经有日记了，请用原来的账号登录');
+    }
+    return false;
+  }
+
+  const session = await auth.getSession();
+  const stored = await db.getMeta('vaultEmail', null);
+  if (stored && session && stored !== session.email) {
+    toast('这个账号不是这台设备的日记本');
+    await auth.signOut();
+    return false;
+  }
+
+  await db.setMeta('vaultEmail', session ? session.email : '');
   return true;
 }
 
