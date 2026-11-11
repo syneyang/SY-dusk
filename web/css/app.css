@@ -1135,9 +1135,9 @@ button.set-row:active { background: var(--dawn-soft); }
 .sky-labels b { font-weight: 500; font-variant-numeric: tabular-nums; }
 .sky-labels span span { font-size: 11px; }
 
-/* 天气折线：标签跟着点走，边界不挤边 */
-.sky-labels { position: relative; height: 34px; margin-top: 2px; }
-.sky-labels span {
+/* 天气折线：标签跟着点走，首尾不贴边 */
+.sky-labels { position: relative; height: 34px; margin-top: 4px; }
+.sky-labels > span {
   position: absolute;
   top: 0;
   transform: translateX(-50%);
@@ -1148,5 +1148,7 @@ button.set-row:active { background: var(--dawn-soft); }
   font-size: 11px;
   color: var(--ink-soft);
 }
-.sky-labels span:first-child { transform: translateX(-18%); }
-.sky-labels span:last-child { transform: translateX(-82%); }
+.sky-labels > span:first-child { transform: translateX(-8%); }
+.sky-labels > span:last-child { transform: translateX(-92%); }
+.sky-labels > span > b { font-weight: 500; font-variant-numeric: tabular-nums; }
+.sky-labels > span > span { font-size: 11px; }
