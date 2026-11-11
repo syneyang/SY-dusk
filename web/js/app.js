@@ -6,7 +6,7 @@ import { renderReview } from './review.js';
 import { renderSettings } from './settings.js';
 import { renderRead } from './read.js';
 import { requireUnlock, startAutoLock } from './lock.js';
-import { syncNow } from './sync.js';
+import { syncNow, scheduleSync } from './sync.js';
 import { todayISO } from './util.js';
 
 const view = document.getElementById('view');
@@ -65,9 +65,23 @@ window.addEventListener('hashchange', () => {
   if (!document.body.classList.contains('locked')) route();
 });
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') flushSave();
+  if (document.visibilityState === 'hidden') {
+    flushSave();
+    scheduleSync(0); // 切走之前先传一次
+  }
 });
-window.addEventListener('pagehide', flushSave);
+window.addEventListener('pagehide', () => {
+  flushSave();
+  scheduleSync(0);
+});
+
+// 网络回来后补一次
+window.addEventListener('online', () => scheduleSync(1000));
+
+// 一直开着的话，每 5 分钟同步一次
+setInterval(() => {
+  if (document.visibilityState === 'visible') syncNow().catch(() => {});
+}, 5 * 60 * 1000);
 
 async function boot() {
   try {

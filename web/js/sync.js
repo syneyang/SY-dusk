@@ -18,7 +18,36 @@ async function authHeaders() {
  * 同步一次：先推本地新改动，再拉云端新改动。
  * progress(text) 用来在界面上显示进度。
  */
+let running = null;
+let rerun = false;
+let autoTimer = null;
+
+/** 自动同步：改完东西过一会儿再传，避免一边打字一边上传。 */
+export function scheduleSync(delay = 6000) {
+  clearTimeout(autoTimer);
+  autoTimer = setTimeout(() => { syncNow().catch(() => {}); }, delay);
+}
+
+export function syncStatusLabel() {
+  return running ? '同步中…' : '';
+}
+
 export async function syncNow(progress = () => {}) {
+  if (running) {
+    rerun = true;
+    return running;
+  }
+  running = doSync(progress).finally(() => {
+    running = null;
+    if (rerun) {
+      rerun = false;
+      scheduleSync(1500);
+    }
+  });
+  return running;
+}
+
+async function doSync(progress = () => {}) {
   const headers = await authHeaders();
   const summary = { pushed: 0, pulled: 0, imagesUp: 0, imagesDown: 0 };
 

@@ -6,6 +6,7 @@ import {
   el, toast, debounce, todayISO, prevISO, weekdayCN, monthDayCN, fullCN, daysBetween
 } from './util.js';
 import { openPlacePicker } from './placepicker.js';
+import { scheduleSync } from './sync.js';
 import { readExif } from './exif.js';
 
 let current = null;
@@ -494,6 +495,7 @@ export async function renderEditor(root, dateISO) {
   }
 
   async function doSave() {
+    scheduleSync();
     // 注意：只在存盘时过滤空段落，不能改动 entry.blocks 本身，
     // 否则「刚点 ＋段落、还没打字」的空块会被永久丢掉。
     const blocksToSave = entry.blocks.filter((b) => b.type === 'image' || (b.text && b.text.trim()));
