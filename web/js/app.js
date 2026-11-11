@@ -113,33 +113,48 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 }
 
 checkForUpdate();
+setInterval(() => { if (document.visibilityState === 'visible') checkForUpdate(); }, 10 * 60 * 1000);
 
-/** 线上版本比本地新时，顶部冒一条「点此更新」。 */
+/** 发现新版本就直接换上：先存盘、记下位置，再重载，用户不用点任何东西。 */
 async function checkForUpdate() {
   try {
     const response = await fetch('js/util.js?ts=' + Date.now(), { cache: 'no-store' });
     if (!response.ok) return;
-    const text = await response.text();
-    const match = text.match(/APP_VERSION = '([^']+)'/);
+    const match = (await response.text()).match(/APP_VERSION = '([^']+)'/);
     if (!match) return;
+
     const remote = match[1];
     const { APP_VERSION: local } = await import('./util.js');
     if (remote === local) return;
+    if (sessionStorage.getItem('duskReloadFor') === remote) return;
 
-    const bar = document.createElement('button');
-    bar.className = 'update-bar';
-    bar.textContent = `有新版本 ${remote}，点这里更新`;
-    bar.onclick = async () => {
-      try {
-        const keys = await caches.keys();
-        await Promise.all(keys.map((key) => caches.delete(key)));
-        const regs = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(regs.map((r) => r.unregister()));
-      } catch {}
-      location.reload();
-    };
-    document.body.append(bar);
+    await applyUpdate(remote);
   } catch {
     // 离线时不管
   }
 }
+
+async function applyUpdate(remote) {
+  // 正在打字就先等一等，别把输入打断
+  const active = document.activeElement;
+  if (active && /^(INPUT|TEXTAREA)$/.test(active.tagName)) {
+    setTimeout(() => applyUpdate(remote), 5000);
+    return;
+  }
+
+  try {
+    sessionStorage.setItem('duskReloadFor', remote);
+    sessionStorage.setItem('duskScroll', String(Math.round(window.scrollY)));
+  } catch {}
+
+  try {
+    await flushSave();
+  } catch {}
+
+  location.reload();
+}
+
+// 回到前台时顺手检查一次
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') checkForUpdate();
+});

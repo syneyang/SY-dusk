@@ -7,12 +7,49 @@ import { el, toast } from './util.js';
 import { syncNow } from './sync.js';
 
 const AUTO_LOCK_MS = 5 * 60 * 1000;
+const SESSION_KEY = 'duskSessionKey';
+const SESSION_AT = 'duskSessionAt';
+const SESSION_MAX_MS = 12 * 60 * 60 * 1000;
 let lockTimer = null;
+
+/** 会话期内（同一个 App 没被杀掉）重载不用再输密码。 */
+function rememberSession(masterRaw) {
+  try {
+    sessionStorage.setItem(SESSION_KEY, crypto.toB64(masterRaw));
+    sessionStorage.setItem(SESSION_AT, String(Date.now()));
+  } catch {}
+}
+
+function forgetSession() {
+  try {
+    sessionStorage.removeItem(SESSION_KEY);
+    sessionStorage.removeItem(SESSION_AT);
+  } catch {}
+}
+
+function recallSession() {
+  try {
+    const value = sessionStorage.getItem(SESSION_KEY);
+    const at = Number(sessionStorage.getItem(SESSION_AT) || 0);
+    if (!value || !at) return null;
+    if (Date.now() - at > SESSION_MAX_MS) { forgetSession(); return null; }
+    return crypto.fromB64(value);
+  } catch {
+    return null;
+  }
+}
 
 export async function requireUnlock(root) {
   document.body.classList.add('locked');
 
   const localLock = await db.getMeta('localLock', null);
+
+  // 刚刚解锁过、App 还没被杀：直接续上，更新/重载都不用再输密码
+  const resumed = localLock ? recallSession() : null;
+  if (resumed) {
+    await finish(resumed);
+    return true;
+  }
 
   // 首选：本机 6 位密码，快、不联网
   if (localLock) {
@@ -35,6 +72,7 @@ export async function requireUnlock(root) {
 }
 
 async function finish(masterRaw) {
+  rememberSession(masterRaw);
   db.setMasterKey(await crypto.importMasterKey(masterRaw));
   if (await db.needsMigration()) await migrate(document.getElementById('view'));
 
@@ -286,6 +324,7 @@ export async function openSignIn(root) {
 }
 
 export function lockNow() {
+  forgetSession();
   location.hash = '#/today';
   location.reload();
 }
