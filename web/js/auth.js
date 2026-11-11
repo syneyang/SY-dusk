@@ -84,7 +84,23 @@ export async function login(email, password) {
 }
 
 export async function getSession() {
-  return db.getMeta(SESSION_KEY, null);
+  const stored = await db.getMeta(SESSION_KEY, null);
+  if (stored) return stored;
+
+  // 老版本把会话放在 localStorage，升级后要能接上
+  try {
+    const legacy = localStorage.getItem(SESSION_KEY);
+    if (legacy) {
+      const parsed = JSON.parse(legacy);
+      if (parsed && parsed.email && parsed.authHash) {
+        await db.setMeta(SESSION_KEY, parsed);
+        localStorage.removeItem(SESSION_KEY);
+        return parsed;
+      }
+    }
+  } catch {}
+
+  return null;
 }
 
 export async function signOut() {
