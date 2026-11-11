@@ -374,17 +374,7 @@ function showPreview(blobs, dateISO, files) {
 }
 
 /** 一天的天气趋势：一条温度折线，下面标时间和天气。 */
-function weatherTrend(allPoints) {
-  // 点太多线就乱了：抽成最多 5 个（首尾必留）
-  let points = allPoints;
-  if (allPoints.length > 5) {
-    const picked = [allPoints[0]];
-    const step = (allPoints.length - 1) / 4;
-    for (let i = 1; i < 4; i++) picked.push(allPoints[Math.round(step * i)]);
-    picked.push(allPoints[allPoints.length - 1]);
-    points = picked.filter((p, i) => picked.indexOf(p) === i);
-  }
-
+function weatherTrend(points) {
   const cities = new Set(points.map((p) => p.city || '').filter(Boolean));
   const multiCity = cities.size > 1;
   const W = 320;
@@ -397,6 +387,7 @@ function weatherTrend(allPoints) {
   const span = max - min || 1;
 
   const step = points.length > 1 ? (W - pad * 2) / (points.length - 1) : 0;
+  let labelsDense = false;
   const dots = points.map((point, index) => {
     const x = pad + step * index;
     const y = point.temp == null ? H / 2 : H - pad - ((point.temp - min) / span) * (H - pad * 2);
@@ -446,8 +437,13 @@ function weatherTrend(allPoints) {
     svg.append(circle);
   });
 
-  const labels = el('div', { class: 'sky-labels' },
-    ...dots.map((dot, index) => {
+  // 一行放得下几个标签，就标几个；首尾和天气变化的点优先
+  const labelIndexes = pickLabelIndexes(dots, 72);
+  labelsDense = labelIndexes.length > 4;
+
+  const labels = el('div', { class: 'sky-labels' + (labelsDense ? ' dense' : '') },
+    ...labelIndexes.map((index) => {
+      const dot = dots[index];
       const prev = dots[index - 1] ? dots[index - 1].point : null;
       const city = multiCity && dot.point.city && (!prev || prev.city !== dot.point.city) ? dot.point.city : '';
       return el('span', {
@@ -473,4 +469,31 @@ async function loadPhoto(id, img) {
   const url = URL.createObjectURL(record.blob);
   img.src = url;
   img.classList.remove('loading');
+}
+
+/**
+ * 一行能放几个标签？按宽度算。
+ * 优先：首、尾、天气有变化的点；剩下的名额均匀补。
+ */
+function pickLabelIndexes(dots, minWidth) {
+  const W = 320;
+  const maxLabels = Math.max(2, Math.floor(W / minWidth));
+  const total = dots.length;
+  if (total <= maxLabels) return dots.map((_, i) => i);
+
+  const chosen = new Set([0, total - 1]);
+  for (let i = 1; i < total - 1; i++) {
+    if (chosen.size >= maxLabels) break;
+    const prev = dots[i - 1].point;
+    const cur = dots[i].point;
+    if (cur.sky && prev.sky && cur.sky !== prev.sky) chosen.add(i);
+  }
+
+  let step = 1;
+  while (chosen.size < maxLabels && step < total) {
+    for (let i = step; i < total - 1 && chosen.size < maxLabels; i += step + 1) chosen.add(i);
+    step += 1;
+  }
+
+  return [...chosen].sort((a, b) => a - b).slice(0, maxLabels);
 }
