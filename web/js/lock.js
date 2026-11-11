@@ -245,10 +245,13 @@ async function passcodeGate(root, localLock) {
   }
 }
 
-async function ensureLocalPasscode(root, masterRaw) {
+async function ensureLocalPasscode(root, masterRaw, options = {}) {
+  const changing = !!options.changing;
   const code = await passcodeScreen(root, {
-    title: '设这台手机的 6 位密码',
-    subtitle: '只是这台手机的开机密码，换手机时重新设就行，可以和别的设备不一样。',
+    title: changing ? '新的 6 位密码' : '设这台手机的 6 位密码',
+    subtitle: changing
+      ? '设好之后，下次打开 App 就用它。原来那个立刻失效。'
+      : '只是这台手机的开机密码，换手机时重新设就行，可以和别的设备不一样。',
     confirm: true
   });
 
@@ -317,18 +320,13 @@ async function accountGate(root) {
 
 /** 设置页里改 6 位密码：先验旧密码，再设新的。 */
 export async function changePasscodeFlow(root) {
-  const localLock = await db.getMeta('localLock', null);
-  if (!localLock) {
-    toast('还没有设置 6 位密码');
+  const masterRaw = recallSession();
+  if (!masterRaw) {
+    toast('请先解锁一次');
     return false;
   }
-  const masterRaw = await passcodeGate(root, localLock);
-  if (!masterRaw) return false;
-  if (passcodeResetJustNow) {
-    passcodeResetJustNow = false;
-    return true;
-  }
-  await ensureLocalPasscode(root, masterRaw);
+  // 已经解锁过，说明人在设备上，直接换新的，不用再验旧密码
+  await ensureLocalPasscode(root, masterRaw, { changing: true });
   return true;
 }
 
