@@ -99,10 +99,14 @@ async function finish(masterRaw) {
       const st = await auth.recoveryStatus(session.email);
       if (st.ok && st.recoverable) {
         await db.setMeta('escrowDone', true);
-      } else if (st.ok && !(await db.getMeta('escrowDone', false))) {
+      } else if (st.ok) {
+        // 不看本地标记，只认服务器：没托管就上传，成功才记账
         const master = recallSession();
-        if (master && (await auth.uploadEscrow(master, session))) {
-          await db.setMeta('escrowDone', true);
+        if (master) {
+          const done = await auth.uploadEscrow(master, session);
+          await db.setMeta('escrowDone', done);
+          if (done) console.log('[dusk] escrow uploaded');
+          else console.warn('[dusk] escrow upload failed');
         }
       }
     }
