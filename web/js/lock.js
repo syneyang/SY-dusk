@@ -210,6 +210,7 @@ function passcodeScreen(root, { title, subtitle, confirm = false, forgot = false
 }
 
 async function passcodeGate(root, localLock) {
+  let failures = 0;
   for (;;) {
     const code = await passcodeScreen(root, {
       title: '解锁',
@@ -227,8 +228,14 @@ async function passcodeGate(root, localLock) {
     try {
       const kek = await crypto.deriveKEK(code, crypto.fromB64(localLock.salt), localLock.iterations);
       return await crypto.unwrapMasterKey(localLock.wrapped, kek);
-    } catch {
-      toast('密码不对');
+    } catch (error) {
+      failures += 1;
+      console.warn('解锁失败', error);
+      toast(failures >= 3 ? '还是不对？点下面的邮箱找回' : '密码不对');
+      if (failures >= 3 && localLock) {
+        const master = await forgotPasswordFlow(root);
+        if (master) return master;
+      }
     }
   }
 }
@@ -625,9 +632,19 @@ async function forgotPasswordFlow(root) {
   });
   if (asked !== true) return null;
 
-  const status = await auth.recoveryStatus(email);
-  if (!status.ok || !status.exists) {
-    toast('这个邮箱还没注册过');
+  let status;
+  try {
+    status = await auth.recoveryStatus(email);
+  } catch (error) {
+    toast('连不上服务器：' + (error.message || error));
+    return null;
+  }
+  if (!status.ok) {
+    toast('服务器说：' + (status.error || '查不了'));
+    return null;
+  }
+  if (!status.exists) {
+    toast(`这个邮箱没注册过：${email}`);
     return null;
   }
   if (!status.recoverable) {
