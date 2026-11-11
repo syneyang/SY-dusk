@@ -221,5 +221,12 @@ export function weatherSummary(entry) {
     return [segment.city, [skyText, tempText].filter(Boolean).join(' ')].filter(Boolean).join(' ');
   };
 
-  return segments.map(describe).filter(Boolean).join(' · ');
+  const texts = segments.map(describe).filter(Boolean);
+  if (segments.length === 1) {
+    // 一整天都在一个城市，城市名没意义，去掉
+    const only = texts[0];
+    const city = segments[0].city;
+    return city && only.startsWith(city) ? only.slice(city.length).trim() : only;
+  }
+  return texts.join(' · ');
 }

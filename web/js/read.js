@@ -387,21 +387,28 @@ function weatherTrend(points) {
     return { x, y, point };
   });
 
-  const line = dots.map((dot) => `${dot.x},${dot.y}`).join(' ');
-
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('class', 'sky-trend');
   svg.setAttribute('viewBox', `0 0 ${W} ${H + 6}`);
   svg.setAttribute('preserveAspectRatio', 'none');
 
-  const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-  poly.setAttribute('points', line);
-  poly.setAttribute('fill', 'none');
-  poly.setAttribute('stroke', 'currentColor');
-  poly.setAttribute('stroke-width', '1.5');
-  poly.setAttribute('stroke-linejoin', 'round');
-  poly.setAttribute('stroke-linecap', 'round');
-  svg.append(poly);
+  // 相邻两点之间画一段线；换城市的地方用虚线（不是同一个地方的连续变化）
+  for (let i = 0; i < dots.length - 1; i++) {
+    const a = dots[i];
+    const b = dots[i + 1];
+    const crossing = a.point.city && b.point.city && a.point.city !== b.point.city;
+
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', a.x);
+    line.setAttribute('y1', a.y);
+    line.setAttribute('x2', b.x);
+    line.setAttribute('y2', b.y);
+    line.setAttribute('stroke', 'currentColor');
+    line.setAttribute('stroke-width', '1.5');
+    line.setAttribute('stroke-linecap', 'round');
+    if (crossing) line.setAttribute('stroke-dasharray', '3 4');
+    svg.append(line);
+  }
 
   for (const dot of dots) {
     const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
