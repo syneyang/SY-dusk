@@ -3,6 +3,7 @@
 import * as db from './db.js';
 import { normalize, plainText, placeName, dedupeRegions } from './model.js';
 import { el, weekdayCN, monthDayCN, fullCN, toast } from './util.js';
+import { weatherPoints, weatherSummary } from './model.js';
 import { renderDayImage, STYLE_LABELS } from './longimage.js';
 
 export async function renderRead(root, dateISO) {
@@ -52,7 +53,8 @@ export async function renderRead(root, dateISO) {
   const places = entry.places.map(placeName).filter(Boolean);
   const regions = dedupeRegions(entry.regions.map(placeName));
 
-  const metaList = [entry.weather, ...places, ...regions].filter(Boolean);
+  const sky = weatherSummary(entry);
+  const metaList = [sky, ...places, ...regions].filter(Boolean);
 
   // ---------- 浮动返回 ----------
   root.append(el('div', { class: 'read-bar' },
@@ -100,11 +102,13 @@ export async function renderRead(root, dateISO) {
       ));
     }
 
-    if (entry.weather) {
+    const points = weatherPoints(entry);
+    if (points.length) {
       metaHost.append(el('div', { class: 'read-meta-line' },
         el('span', { class: 'read-meta-key' }, '天气'),
-        el('span', { class: 'read-meta-val' }, entry.weather)
+        el('span', { class: 'read-meta-val' }, sky || entry.weather || '')
       ));
+      if (points.length > 1) metaHost.append(weatherTrend(points));
     }
   }
   renderMeta();
@@ -363,4 +367,60 @@ function showPreview(blobs, dateISO, files) {
     backdrop.remove();
     urls.forEach(URL.revokeObjectURL);
   }
+}
+
+/** 一天的天气趋势：一条温度折线，下面标时间和天气。 */
+function weatherTrend(points) {
+  const W = 320;
+  const H = 46;
+  const pad = 10;
+
+  const temps = points.map((p) => p.temp).filter((t) => t != null);
+  const min = temps.length ? Math.min(...temps) : 0;
+  const max = temps.length ? Math.max(...temps) : 1;
+  const span = max - min || 1;
+
+  const step = points.length > 1 ? (W - pad * 2) / (points.length - 1) : 0;
+  const dots = points.map((point, index) => {
+    const x = pad + step * index;
+    const y = point.temp == null ? H / 2 : H - pad - ((point.temp - min) / span) * (H - pad * 2);
+    return { x, y, point };
+  });
+
+  const line = dots.map((dot) => `${dot.x},${dot.y}`).join(' ');
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'sky-trend');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H + 6}`);
+  svg.setAttribute('preserveAspectRatio', 'none');
+
+  const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+  poly.setAttribute('points', line);
+  poly.setAttribute('fill', 'none');
+  poly.setAttribute('stroke', 'currentColor');
+  poly.setAttribute('stroke-width', '1.5');
+  poly.setAttribute('stroke-linejoin', 'round');
+  poly.setAttribute('stroke-linecap', 'round');
+  svg.append(poly);
+
+  for (const dot of dots) {
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', dot.x);
+    circle.setAttribute('cy', dot.y);
+    circle.setAttribute('r', '2.6');
+    circle.setAttribute('fill', 'currentColor');
+    svg.append(circle);
+  }
+
+  const labels = el('div', { class: 'sky-labels' },
+    ...dots.map((dot) => el('span', {},
+      el('b', {}, dot.point.time),
+      el('span', {}, [dot.point.sky, dot.point.temp == null ? '' : `${dot.point.temp}℃`].filter(Boolean).join(' '))
+    ))
+  );
+
+  return el('div', { class: 'read-meta-line sky-line' },
+    el('span', { class: 'read-meta-key' }, ''),
+    el('div', { class: 'sky-box' }, svg, labels)
+  );
 }

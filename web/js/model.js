@@ -159,3 +159,56 @@ export async function compressImage(file) {
     return { blob: file, width: 0, height: 0, thumb: null, raw: true };
   }
 }
+
+/** 把「07:19 / 雾 7℃」拆成 { time, sky, temp }。 */
+export function weatherPoints(entry) {
+  const readings = Array.isArray(entry.weatherReadings) ? entry.weatherReadings : [];
+  const points = readings.map((reading) => {
+    const text = String(reading.display || '').trim();
+    const match = text.match(/^(.*?)\s*(-?\d+)\s*(?:℃|°C|度)?\s*$/);
+    return {
+      time: reading.time || '',
+      sky: (match ? match[1] : text).trim(),
+      temp: match && match[2] != null ? Number(match[2]) : null,
+      ts: reading.ts || 0
+    };
+  }).filter((point) => point.sky || point.temp != null);
+
+  if (!points.length && entry.weather) {
+    const text = String(entry.weather).trim();
+    const match = text.match(/^(.*?)\s*(-?\d+)\s*(?:℃|°C|度)?\s*$/);
+    points.push({
+      time: '',
+      sky: (match ? match[1] : text).trim(),
+      temp: match && match[2] != null ? Number(match[2]) : null,
+      ts: 0
+    });
+  }
+  return points;
+}
+
+/** 一天的天气一句话：雾转晴 7~16℃ */
+export function weatherSummary(entry) {
+  const points = weatherPoints(entry);
+  if (!points.length) return '';
+
+  const skies = [];
+  for (const point of points) {
+    if (!point.sky) continue;
+    if (skies[skies.length - 1] !== point.sky) skies.push(point.sky);
+  }
+
+  const temps = points.map((p) => p.temp).filter((t) => t != null);
+  const min = temps.length ? Math.min(...temps) : null;
+  const max = temps.length ? Math.max(...temps) : null;
+
+  const skyText = skies.length === 0
+    ? ''
+    : skies.length === 1
+      ? skies[0]
+      : `${skies[0]}转${skies[skies.length - 1]}`;
+
+  const tempText = min == null ? '' : min === max ? `${min}℃` : `${min}~${max}℃`;
+
+  return [skyText, tempText].filter(Boolean).join(' ');
+}

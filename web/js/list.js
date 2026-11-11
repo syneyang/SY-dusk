@@ -73,7 +73,8 @@ function renderRow(entry) {
   const title = firstLine(entry) || (imageIds(entry).length ? '只有照片的一天' : '空白的一天');
 
   const meta = [`${day}日 ${weekdayCN(entry.date)}`];
-  if (entry.weather) meta.push(entry.weather);
+  const sky = weatherSummary(entry);
+  if (sky) meta.push(sky);
   const images = imageIds(entry).length;
   if (images) meta.push(`${images} 张`);
   const chars = charCount(entry);

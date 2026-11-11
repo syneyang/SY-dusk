@@ -1110,3 +1110,27 @@ button.set-row:active { background: var(--dawn-soft); }
   margin-bottom: 12px;
   background: #fff;
 }
+
+/* ---------- 天气趋势 ---------- */
+
+.sky-line { align-items: flex-start; }
+.sky-box { flex: 1; min-width: 0; }
+.sky-trend {
+  display: block;
+  width: 100%;
+  height: 46px;
+  color: var(--dawn);
+  opacity: 0.9;
+  margin-top: 2px;
+}
+.sky-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+.sky-labels span { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.sky-labels b { font-weight: 500; font-variant-numeric: tabular-nums; }
+.sky-labels span span { font-size: 11px; }
