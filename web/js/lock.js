@@ -7,10 +7,12 @@ import { el, toast } from './util.js';
 import { syncNow } from './sync.js';
 
 const AUTO_LOCK_MS = 5 * 60 * 1000;
+let awayMs = 0;
+let hiddenSince = 0;
+let lockTimer = null;
 const SESSION_KEY = 'duskSessionKey';
 const SESSION_AT = 'duskSessionAt';
 const SESSION_MAX_MS = 12 * 60 * 60 * 1000;
-let lockTimer = null;
 
 /** 会话期内（同一个 App 没被杀掉）重载不用再输密码。 */
 function rememberSession(masterRaw) {
@@ -72,6 +74,8 @@ export async function requireUnlock(root) {
 }
 
 async function finish(masterRaw) {
+  awayMs = 0;
+  hiddenSince = 0;
   rememberSession(masterRaw);
   db.setMasterKey(await crypto.importMasterKey(masterRaw));
   if (await db.needsMigration()) await migrate(document.getElementById('view'));
@@ -331,15 +335,35 @@ export function lockNow() {
 
 export function startAutoLock() {
   clearTimeout(lockTimer);
+  if (document.__duskLockBound) return;
+  document.__duskLockBound = true;
+
+  // 累计离开时间：分几次离开也会加起来，超过 5 分钟就锁
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
-      lockTimer = setTimeout(() => {
-        if (db.hasMasterKey()) lockNow();
-      }, AUTO_LOCK_MS);
-    } else {
+      hiddenSince = Date.now();
+      const left = Math.max(0, AUTO_LOCK_MS - awayMs);
       clearTimeout(lockTimer);
+      lockTimer = setTimeout(checkLock, left);
+      return;
     }
+
+    if (hiddenSince) {
+      awayMs += Date.now() - hiddenSince;
+      hiddenSince = 0;
+    }
+    clearTimeout(lockTimer);
+    checkLock();
   });
+
+  function checkLock() {
+    const total = awayMs + (hiddenSince ? Date.now() - hiddenSince : 0);
+    if (total >= AUTO_LOCK_MS && db.hasMasterKey()) {
+      awayMs = 0;
+      hiddenSince = 0;
+      lockNow();
+    }
+  }
 }
 
 // ---------- 登录 ----------
