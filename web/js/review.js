@@ -1,7 +1,7 @@
 // 望：周 / 月 / 年三档。一眼看形状，不看字。
 
 import * as db from './db.js';
-import { normalize, charCount, imageCount, allPlaces } from './model.js';
+import { normalize, charCount, imageCount, allPlaces, isEmptyEntry } from './model.js';
 import { el, dateOf, isoOf, todayISO } from './util.js';
 
 export async function renderReview(root) {
