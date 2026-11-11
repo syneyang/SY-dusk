@@ -495,5 +495,20 @@ function pickLabelIndexes(dots, minWidth) {
     step += 1;
   }
 
-  return [...chosen].sort((a, b) => a - b).slice(0, maxLabels);
+  const sorted = [...chosen].sort((a, b) => a - b).slice(0, maxLabels);
+
+  // 再按横坐标过滤一遍：两个标签挨得太近就丢掉前一个
+  const kept = [];
+  const minGap = minWidth * 0.92;
+  for (const index of sorted) {
+    const isLast = index === sorted[sorted.length - 1];
+    if (!kept.length) {
+      kept.push(index);
+      continue;
+    }
+    const gap = dots[index].x - dots[kept[kept.length - 1]].x;
+    if (gap >= minGap) kept.push(index);
+    else if (isLast) kept[kept.length - 1] = index; // 末尾优先
+  }
+  return kept;
 }
