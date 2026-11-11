@@ -143,13 +143,6 @@ export async function renderRead(root, dateISO) {
     firstParagraph = false;
   }
 
-  // 只有照片没有文字
-  if (!items.some((i) => i.type === 'text') && images.length) {
-    body.append(el('div', { class: 'read-grid' },
-      ...images.map((image) => el('img', { src: image.url, alt: '' }))
-    ));
-  }
-
   root.append(body);
 
   // ---------- 页脚 ----------
@@ -381,7 +374,17 @@ function showPreview(blobs, dateISO, files) {
 }
 
 /** 一天的天气趋势：一条温度折线，下面标时间和天气。 */
-function weatherTrend(points) {
+function weatherTrend(allPoints) {
+  // 点太多线就乱了：抽成最多 5 个（首尾必留）
+  let points = allPoints;
+  if (allPoints.length > 5) {
+    const picked = [allPoints[0]];
+    const step = (allPoints.length - 1) / 4;
+    for (let i = 1; i < 4; i++) picked.push(allPoints[Math.round(step * i)]);
+    picked.push(allPoints[allPoints.length - 1]);
+    points = picked.filter((p, i) => picked.indexOf(p) === i);
+  }
+
   const cities = new Set(points.map((p) => p.city || '').filter(Boolean));
   const multiCity = cities.size > 1;
   const W = 320;

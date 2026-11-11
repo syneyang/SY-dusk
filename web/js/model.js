@@ -212,11 +212,20 @@ export function weatherSummary(entry) {
     const min = temps.length ? Math.min(...temps) : null;
     const max = temps.length ? Math.max(...temps) : null;
 
-    const skyText = skies.length === 0
-      ? ''
-      : skies.length === 1
-        ? skies[0]
-        : `${skies[0]}转${skies[skies.length - 1]}`;
+    let skyText = '';
+    if (skies.length === 1) {
+      skyText = skies[0];
+    } else if (skies.length > 1) {
+      const first = skies[0];
+      const last = skies[skies.length - 1];
+      if (first !== last) {
+        skyText = `${first}转${last}`;
+      } else {
+        // 早上雾、中间晴、晚上又是雾 → 写「雾转晴」
+        const middle = skies.slice(1, -1).find((sky) => sky !== first) || first;
+        skyText = middle === first ? first : `${first}转${middle}`;
+      }
+    }
     const tempText = min == null ? '' : min === max ? `${min}℃` : `${min}~${max}℃`;
 
     return [segment.city, [skyText, tempText].filter(Boolean).join(' ')].filter(Boolean).join(' ');
