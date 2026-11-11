@@ -15,6 +15,23 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 <meta name="apple-mobile-web-app-title" content="朝夕" />
 <link rel="stylesheet" href="css/app.css" />
+  <style>
+    /* 键盘关键样式内联：不依赖 app.css，避免被 WebView 缓存拖住 */
+    .lock-dots { display: flex !important; justify-content: center !important; gap: 22px !important; margin: 16px 0 6px !important; }
+    .lock-dots span { width: 13px !important; height: 13px !important; border-radius: 50% !important; border: 1px solid #6b625a !important; }
+    .lock-dots span.on { background: #cd6f3a !important; border-color: #cd6f3a !important; }
+    .key {
+      -webkit-appearance: none !important;
+      appearance: none !important;
+      outline: none !important;
+      box-shadow: none !important;
+      -webkit-tap-highlight-color: transparent !important;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    .key:focus, .key:focus-visible, .key:active { outline: none !important; box-shadow: none !important; }
+    button { -webkit-tap-highlight-color: transparent; }
+  </style>
 </head>
 <body>
 <div id="view" class="view"></div>
