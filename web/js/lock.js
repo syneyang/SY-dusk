@@ -7,6 +7,7 @@ import { el, toast } from './util.js';
 import { syncNow } from './sync.js';
 
 const AUTO_LOCK_MS = 5 * 60 * 1000;
+let passcodeResetJustNow = false;
 let awayMs = 0;
 let hiddenSince = 0;
 let lockTimer = null;
@@ -323,6 +324,10 @@ export async function changePasscodeFlow(root) {
   }
   const masterRaw = await passcodeGate(root, localLock);
   if (!masterRaw) return false;
+  if (passcodeResetJustNow) {
+    passcodeResetJustNow = false;
+    return true;
+  }
   await ensureLocalPasscode(root, masterRaw);
   return true;
 }
@@ -704,7 +709,10 @@ async function forgotPasswordFlow(root) {
   const masterRaw = crypto.fromB64(verified.master);
   await auth.applyReset(email, verified.token, password, masterRaw);
   await db.setMeta('vaultEmail', email);
-  await db.deleteMeta('escrowDone');
+
+  // 旧的 6 位密码已经想不起来了，必须换一个新的，否则退出后又被挡住
+  await ensureLocalPasscode(root, masterRaw);
+  passcodeResetJustNow = true;
   return masterRaw;
 }
 
