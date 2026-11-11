@@ -62,6 +62,7 @@ export function firstLine(entry, limit = 40) {
 }
 
 export function isEmptyEntry(entry) {
+  if (entry.coverImageId) return false;
   return charCount(entry) === 0 && imageCount(entry) === 0;
 }
 

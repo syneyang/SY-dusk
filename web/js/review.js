@@ -5,7 +5,7 @@ import { normalize, charCount, imageCount, allPlaces } from './model.js';
 import { el, dateOf, isoOf, todayISO } from './util.js';
 
 export async function renderReview(root) {
-  const entries = (await db.allEntries()).map(normalize);
+  const entries = (await db.allEntries()).map(normalize).filter((entry) => !isEmptyEntry(entry));
   const chars = new Map();
   for (const entry of entries) {
     chars.set(entry.date, (chars.get(entry.date) || 0) + charCount(entry));

@@ -1,11 +1,14 @@
 // 时光：按年月分组的列表，可搜索。
 
 import * as db from './db.js';
-import { normalize, firstLine, imageIds, charCount, plainText, placeName, weatherSummary } from './model.js';
+import { normalize, firstLine, imageIds, charCount, plainText, placeName, weatherSummary, isEmptyEntry } from './model.js';
 import { el, monthTitle, weekdayCN, debounce } from './util.js';
 
 export async function renderList(root) {
-  const entries = (await db.allEntries()).map(normalize).sort((a, b) => b.date.localeCompare(a.date));
+  const entries = (await db.allEntries())
+    .map(normalize)
+    .filter((entry) => !isEmptyEntry(entry))
+    .sort((a, b) => b.date.localeCompare(a.date));
 
   root.innerHTML = '';
   root.append(el('h1', { class: 'page-title' }, '时光'));
