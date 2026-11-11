@@ -95,6 +95,17 @@ async function finish(masterRaw) {
     if (session && !(await db.getMeta('vaultEmail', null))) {
       await db.setMeta('vaultEmail', session.email);
     }
+    if (session) {
+      const st = await auth.recoveryStatus(session.email);
+      if (st.ok && st.recoverable) {
+        await db.setMeta('escrowDone', true);
+      } else if (st.ok && !(await db.getMeta('escrowDone', false))) {
+        const master = recallSession();
+        if (master && (await auth.uploadEscrow(master, session))) {
+          await db.setMeta('escrowDone', true);
+        }
+      }
+    }
   } catch {}
 
   document.body.classList.remove('locked');
@@ -151,7 +162,7 @@ function passcodeScreen(root, { title, subtitle, confirm = false, forgot = false
       dots,
       keypad,
       forgot
-        ? el('button', { class: 'lock-link', onclick: () => resolve(null) }, '忘了 6 位密码？用邮箱找回')
+        ? el('button', { class: 'lock-link', onclick: () => resolve('__forgot__') }, '忘了 6 位密码？')
         : null
     ));
 
@@ -205,6 +216,12 @@ async function passcodeGate(root, localLock) {
       subtitle: '输入 6 位密码',
       forgot: true
     });
+
+    if (code === '__forgot__') {
+      const master = await forgotPasswordFlow(root);
+      if (master) return master;
+      continue;
+    }
     if (code === null) return null;
 
     try {
@@ -589,3 +606,101 @@ async function migrate(root) {
   label.textContent = '好了。';
   await new Promise((r) => setTimeout(r, 400));
 }
+
+// ---------- 邮箱找回 ----------
+
+async function forgotPasswordFlow(root) {
+  const choice = await pickRecoveryWay(root);
+  if (!choice) return null;
+  if (choice === 'password') return null; // 走原来的账号密码
+
+  let email = '';
+  const asked = await formScreen(root, {
+    title: '用邮箱找回',
+    subtitle: '输入注册朝夕时用的邮箱',
+    fields: [{ key: 'email', label: '邮箱', type: 'email', placeholder: 'you@example.com', autofocus: true }],
+    action: '下一步',
+    footer: (resolve) => el('button', { class: 'lock-link', onclick: () => resolve({ back: true }) }, '返回'),
+    submit: async (values) => { email = values.email.trim().toLowerCase(); }
+  });
+  if (asked !== true) return null;
+
+  const status = await auth.recoveryStatus(email);
+  if (!status.ok || !status.exists) {
+    toast('这个邮箱还没注册过');
+    return null;
+  }
+  if (!status.recoverable) {
+    toast('这个账号还没开启找回，先用账号密码登录');
+    return null;
+  }
+
+  const sent = await auth.startRecovery(email);
+  if (!sent.ok) {
+    toast(sent.error || '验证码没发出去');
+    return null;
+  }
+  toast(`验证码已发到 ${email}`);
+
+  let code = '';
+  const askedCode = await formScreen(root, {
+    title: '输入验证码',
+    subtitle: `已发到 ${email}，10 分钟内有效`,
+    fields: [{ key: 'code', label: '验证码', type: 'tel', placeholder: '6 位数字', autofocus: true }],
+    action: '验证',
+    footer: (resolve) => el('button', { class: 'lock-link', onclick: () => resolve({ back: true }) }, '取消'),
+    submit: async (values) => {
+      code = String(values.code || '').replace(/\D/g, '');
+      if (code.length !== 6) throw new Error('验证码是 6 位数字');
+    }
+  });
+  if (askedCode !== true) return null;
+
+  const verified = await auth.verifyRecovery(email, code);
+  if (!verified.ok) {
+    toast(verified.error || '验证码不对');
+    return null;
+  }
+
+  let password = '';
+  const askedNew = await formScreen(root, {
+    title: '设置新密码',
+    subtitle: '以后换手机、找回密码都用它',
+    fields: [
+      { key: 'password', label: '新密码', type: 'password', placeholder: '至少 8 位，含字母和数字', autofocus: true },
+      { key: 'confirm', label: '再输一次', type: 'password', placeholder: '确认密码' }
+    ],
+    action: '保存',
+    submit: async (values) => {
+      const problem = auth.passwordProblem(values.password);
+      if (problem) throw new Error(problem);
+      if (values.password !== values.confirm) throw new Error('两次密码不一样');
+      password = values.password;
+    }
+  });
+  if (askedNew !== true) return null;
+
+  const masterRaw = crypto.fromB64(verified.master);
+  await auth.applyReset(email, verified.token, password, masterRaw);
+  await db.setMeta('vaultEmail', email);
+  await db.deleteMeta('escrowDone');
+  return masterRaw;
+}
+
+function pickRecoveryWay(root) {
+  return new Promise((resolve) => {
+    root.innerHTML = '';
+    root.append(el('div', { class: 'lock' },
+      el('div', { class: 'lock-logo' }, '朝夕'),
+      el('div', { class: 'lock-title' }, '怎么找回？'),
+      el('div', { class: 'lock-note' }, '用邮箱收验证码，或者用你记得的账号密码。'),
+      el('button', { class: 'lock-btn wide', onclick: () => resolve('email') }, '用邮箱验证码找回'),
+      el('button', {
+        class: 'lock-btn ghost wide',
+        onclick: () => resolve('password')
+      }, '用账号密码登录'),
+      el('button', { class: 'lock-link', onclick: () => resolve(null) }, '取消')
+    ));
+  });
+}
+

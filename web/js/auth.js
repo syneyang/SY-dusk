@@ -117,3 +117,50 @@ export function accountHeaders(session) {
 export async function importSessionMasterKey(masterRaw) {
   return importMasterKey(masterRaw);
 }
+
+/** 邮箱验证通过后：用新密码重设，并把会话存到本机。 */
+export async function applyReset(email, token, password, masterRaw) {
+  const clean = normalizeEmail(email);
+  const salt = randomBytes(16);
+  const { authHash, wrapKey } = await deriveKeys(password, salt, ITERATIONS);
+  const wrapped = await wrapMasterKey(masterRaw, wrapKey);
+
+  const data = await call({
+    action: 'finish',
+    email: clean,
+    token,
+    salt: toB64(salt),
+    authHash,
+    wrapped,
+    iterations: ITERATIONS
+  });
+  if (!data.ok) throw new Error(data.error || '重设失败');
+
+  await db.setMeta(SESSION_KEY, { email: clean, authHash, salt: toB64(salt), iterations: ITERATIONS });
+  return { email: clean, authHash };
+}
+
+/** 把主密钥交给服务器托管，忘了密码才解得开。 */
+export async function uploadEscrow(masterRaw, authHashState) {
+  const session = authHashState || (await getSession());
+  if (!session) return false;
+  const data = await call({
+    action: 'escrow',
+    email: session.email,
+    authHash: session.authHash,
+    master: toB64(masterRaw)
+  });
+  return !!data.ok;
+}
+
+export async function recoveryStatus(email) {
+  return call({ action: 'status', email: normalizeEmail(email) });
+}
+
+export async function startRecovery(email) {
+  return call({ action: 'start', email: normalizeEmail(email) });
+}
+
+export async function verifyRecovery(email, code) {
+  return call({ action: 'verify', email: normalizeEmail(email), code });
+}
