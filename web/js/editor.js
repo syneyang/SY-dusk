@@ -430,12 +430,7 @@ export async function renderEditor(root, dateISO) {
     try {
       recorder = await startRecording();
       recording = true;
-      recordStartedAt = Date.now();
-      if (pushLabel) pushLabel.textContent = `放开结束 ${clockText()}`;
-      clearInterval(recordTimer);
-      recordTimer = setInterval(() => {
-        if (pushLabel) pushLabel.textContent = `放开结束 ${clockText()}`;
-      }, 500);
+      if (pushLabel) pushLabel.textContent = '放开结束';
     } catch (error) {
       pushBtn.classList.remove('on');
       if (pushLabel) pushLabel.textContent = '按住说话';
