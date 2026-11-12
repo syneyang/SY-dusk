@@ -375,6 +375,15 @@ export async function renderEditor(root, dateISO) {
       return;
     }
 
+    // 没点过任何段落时：如果第一段还是空的，就写进第一段
+    if (lastFocusedBlock == null) {
+      const emptyIndex = entry.blocks.findIndex((b) => b.type === 'text' && !(b.text || '').trim());
+      if (emptyIndex !== -1) {
+        lastFocusedBlock = emptyIndex;
+        lastCaret = 0;
+      }
+    }
+
     const target = lastFocusedBlock != null ? entry.blocks[lastFocusedBlock] : null;
 
     // 有正在写的段落 → 插到光标处，不另起一段
@@ -414,7 +423,9 @@ export async function renderEditor(root, dateISO) {
       voiceBusy = false;
       pushBtn.disabled = false;
       longBtn.disabled = false;
-        if (pushLabel) pushLabel.textContent = '按住说话';
+      stopClock();
+      if (pushLabel) pushLabel.textContent = '按住说话';
+      if (longLabel) longLabel.textContent = '录音转录';
     }
   }
 
