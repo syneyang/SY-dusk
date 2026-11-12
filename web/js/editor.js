@@ -7,7 +7,7 @@ import {
 } from './util.js';
 import { openPlacePicker } from './placepicker.js';
 import { scheduleSync } from './sync.js';
-import { startRecording, transcribe } from './voice.js';
+import { startRecording, transcribe, warmUpMicrophone, releaseMicrophone } from './voice.js';
 import { readExif } from './exif.js';
 
 let current = null;
@@ -323,6 +323,8 @@ export async function renderEditor(root, dateISO) {
   // ---------- 语音输入 ----------
   let lastFocusedBlock = null;
   let lastCaret = null;
+  let recordTimer = null;
+  let recordStartedAt = 0;
   let recorder = null;
   let recording = false;
   let voiceBusy = false;
@@ -337,6 +339,27 @@ export async function renderEditor(root, dateISO) {
 
   const voiceRow = el('div', { class: 'voice-row' }, pushBtn, longBtn, voiceHint);
   const pushLabel = pushBtn.querySelector('.voice-label');
+  const longLabel = longBtn.querySelector('.voice-label');
+
+  function clockText() {
+    const seconds = Math.max(0, Math.floor((Date.now() - recordStartedAt) / 1000));
+    const m = Math.floor(seconds / 60);
+    const s = String(seconds % 60).padStart(2, '0');
+    return `${m}:${s}`;
+  }
+
+  function startClock(label) {
+    recordStartedAt = Date.now();
+    clearInterval(recordTimer);
+    const tick = () => { if (label) label.textContent = `停止录音 ${clockText()}`; };
+    tick();
+    recordTimer = setInterval(tick, 500);
+  }
+
+  function stopClock() {
+    clearInterval(recordTimer);
+    recordTimer = null;
+  }
 
   // 长按时不要弹出「选择文字 / 拷贝」菜单（只拦按住说话，别把点击也拦掉）
   pushBtn.addEventListener('contextmenu', (event) => event.preventDefault());
@@ -407,7 +430,12 @@ export async function renderEditor(root, dateISO) {
     try {
       recorder = await startRecording();
       recording = true;
-      if (pushLabel) pushLabel.textContent = '放开结束';
+      recordStartedAt = Date.now();
+      if (pushLabel) pushLabel.textContent = `放开结束 ${clockText()}`;
+      clearInterval(recordTimer);
+      recordTimer = setInterval(() => {
+        if (pushLabel) pushLabel.textContent = `放开结束 ${clockText()}`;
+      }, 500);
     } catch (error) {
       pushBtn.classList.remove('on');
       if (pushLabel) pushLabel.textContent = '按住说话';
@@ -431,6 +459,9 @@ export async function renderEditor(root, dateISO) {
         toast(error.message || '录音失败');
     }
   };
+
+  warmUpMicrophone();
+  window.addEventListener('pagehide', releaseMicrophone, { once: true });
 
   pushBtn.addEventListener('pointerdown', beginPush);
   pushBtn.addEventListener('pointerup', endPush);

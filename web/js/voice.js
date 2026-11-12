@@ -1,15 +1,39 @@
 // 录音 + 转写：把麦克风的声音变成文字。
 // iOS 录出来是 m4a，安卓是 webm，百度只认 16k 单声道 WAV，所以这里统一转一遍。
 
-/** 开始录音，返回 { stop: () => Promise<Blob>, cancel } */
-export async function startRecording() {
+// 麦克风只申请一次，之后一直复用：不会反复弹权限，也不会每次卡一下
+let sharedStream = null;
+
+async function ensureStream() {
+  if (sharedStream && sharedStream.getAudioTracks().some((track) => track.readyState === 'live')) {
+    return sharedStream;
+  }
+
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     throw new Error('这台设备的浏览器不支持录音');
   }
 
-  const stream = await navigator.mediaDevices.getUserMedia({
+  sharedStream = await navigator.mediaDevices.getUserMedia({
     audio: { channelCount: 1, sampleRate: 48000, echoCancellation: true, noiseSuppression: true }
   });
+  return sharedStream;
+}
+
+/** 页面离开时把麦克风关掉（否则状态栏一直亮着） */
+export function releaseMicrophone() {
+  if (!sharedStream) return;
+  sharedStream.getTracks().forEach((track) => track.stop());
+  sharedStream = null;
+}
+
+/** 提前把麦克风准备好（第一次点按钮之前调用，省掉那一下卡顿） */
+export function warmUpMicrophone() {
+  ensureStream().catch(() => {});
+}
+
+/** 开始录音，返回 { stop: () => Promise<Blob>, cancel } */
+export async function startRecording() {
+  const stream = await ensureStream();
 
   const mime = pickMimeType();
   const recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
@@ -23,7 +47,6 @@ export async function startRecording() {
 
   const finish = () => new Promise((resolve) => {
     recorder.addEventListener('stop', () => {
-      stream.getTracks().forEach((track) => track.stop());
       resolve(new Blob(chunks, { type: recorder.mimeType || 'audio/webm' }));
     }, { once: true });
     recorder.stop();
@@ -31,9 +54,9 @@ export async function startRecording() {
 
   return {
     stop: finish,
+    // 只停录音，不关麦克风（下次直接复用）
     cancel: () => {
       try { recorder.stop(); } catch {}
-      stream.getTracks().forEach((track) => track.stop());
     }
   };
 }
