@@ -326,10 +326,17 @@ export async function renderEditor(root, dateISO) {
   let voiceBusy = false;
 
   const voiceHint = el('span', { class: 'voice-hint' });
-  const pushBtn = el('button', { class: 'ghost voice-btn' }, '🎙 按住说话');
+  const pushBtn = el('button', { class: 'ghost voice-btn voice-push' }, '🎙 按住说话');
   const longBtn = el('button', { class: 'ghost voice-btn' }, '⏺ 录音');
 
-  const voiceRow = el('span', { class: 'voice-row' }, pushBtn, longBtn, voiceHint);
+  const voiceRow = el('div', { class: 'voice-row' }, pushBtn, longBtn, voiceHint);
+
+  // 长按时不要弹出「选择文字 / 拷贝」菜单
+  for (const button of [pushBtn, longBtn]) {
+    button.addEventListener('contextmenu', (event) => event.preventDefault());
+    button.addEventListener('touchstart', (event) => event.preventDefault(), { passive: false });
+    button.addEventListener('selectstart', (event) => event.preventDefault());
+  }
 
   function insertSpeech(text) {
     const clean = (text || '').trim();
@@ -597,7 +604,8 @@ export async function renderEditor(root, dateISO) {
       el('span', { class: 'label' }, '区域'),
       el('div', { style: 'flex:1' }, regionChips, regionInput)),
     blockList,
-    el('div', { class: 'toolbar-line' }, addTextBtn, voiceRow, photoRow,
+    voiceRow,
+    el('div', { class: 'toolbar-line' }, addTextBtn, photoRow,
       el('a', { class: 'read-link', href: `#/read/${date}` }, '看一眼 ›')),
     el('div', { class: 'toolbar-line', style: 'margin-top:4px' }, counter),
     saveHint
