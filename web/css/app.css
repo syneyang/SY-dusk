@@ -1239,10 +1239,9 @@ button.set-row:active { background: var(--dawn-soft); }
   width: 100%;
   margin-top: 12px;
   padding: 8px 4px;
-  background: color-mix(in srgb, var(--paper) 92%, transparent);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: var(--paper);
   border-radius: 18px;
+  box-shadow: 0 -6px 20px rgba(43, 38, 32, 0.08);
 }
 .voice-btn {
   display: inline-flex;

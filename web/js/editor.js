@@ -336,13 +336,14 @@ export async function renderEditor(root, dateISO) {
     el('span', { class: 'voice-label' }, '录音转录'));
 
   const voiceRow = el('div', { class: 'voice-row' }, pushBtn, longBtn, voiceHint);
+  const pushLabel = pushBtn.querySelector('.voice-label');
 
-  // 长按时不要弹出「选择文字 / 拷贝」菜单
-  for (const button of [pushBtn, longBtn]) {
-    button.addEventListener('contextmenu', (event) => event.preventDefault());
-    button.addEventListener('touchstart', (event) => event.preventDefault(), { passive: false });
-    button.addEventListener('selectstart', (event) => event.preventDefault());
-  }
+  // 长按时不要弹出「选择文字 / 拷贝」菜单（只拦按住说话，别把点击也拦掉）
+  pushBtn.addEventListener('contextmenu', (event) => event.preventDefault());
+  pushBtn.addEventListener('touchstart', (event) => event.preventDefault(), { passive: false });
+  pushBtn.addEventListener('selectstart', (event) => event.preventDefault());
+  longBtn.addEventListener('contextmenu', (event) => event.preventDefault());
+  longBtn.addEventListener('selectstart', (event) => event.preventDefault());
 
   function insertSpeech(text) {
     const clean = (text || '').trim();
@@ -391,20 +392,29 @@ export async function renderEditor(root, dateISO) {
       pushBtn.disabled = false;
       longBtn.disabled = false;
       voiceHint.textContent = '';
+      if (pushLabel) pushLabel.textContent = '按住说话';
     }
   }
 
   // 按住说话：按下开始，松开结束
+  let pending = false;
+
   const beginPush = async (event) => {
     event.preventDefault();
-    if (voiceBusy || recording) return;
+    if (voiceBusy || recording || pending) return;
+    pending = true;
+    pushBtn.classList.add('on');
+    if (pushLabel) pushLabel.textContent = '准备中…';
     try {
       recorder = await startRecording();
       recording = true;
-      pushBtn.classList.add('on');
-      voiceHint.textContent = '松手结束';
+      if (pushLabel) pushLabel.textContent = '放开结束';
     } catch (error) {
+      pushBtn.classList.remove('on');
+      if (pushLabel) pushLabel.textContent = '按住说话';
       toast(error.message || '录不了音');
+    } finally {
+      pending = false;
     }
   };
 
@@ -412,7 +422,8 @@ export async function renderEditor(root, dateISO) {
     if (!recording || !recorder) return;
     recording = false;
     pushBtn.classList.remove('on');
-    voiceHint.textContent = '识别中…';
+    if (pushLabel) pushLabel.textContent = '识别中…';
+    voiceHint.textContent = '';
     const device = recorder;
     recorder = null;
     try {
