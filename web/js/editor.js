@@ -29,6 +29,7 @@ export async function renderEditor(root, dateISO) {
   if (!entry.blocks.length) entry.blocks = [{ type: 'text', text: '' }];
 
   root.innerHTML = '';
+  root.classList.add('view-editor');
 
   // ---------- 头部 ----------
   const dayIndex = daysBetween(journeyStart, date) + 1;

@@ -1225,10 +1225,14 @@ button.set-row:active { background: var(--dawn-soft); }
 
 /* ---------- 语音输入 ---------- */
 
+.view-editor { padding-bottom: 108px; }
+
 .voice-row {
-  position: sticky;
-  bottom: calc(64px + var(--safe-bottom, 0px));
-  z-index: 6;
+  position: fixed;
+  left: 14px;
+  right: 14px;
+  bottom: calc(66px + var(--safe-bottom, 0px));
+  z-index: 7;
   display: flex;
   align-items: center;
   gap: 10px;
