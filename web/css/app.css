@@ -1226,12 +1226,19 @@ button.set-row:active { background: var(--dawn-soft); }
 /* ---------- 语音输入 ---------- */
 
 .voice-row {
+  position: sticky;
+  bottom: calc(64px + var(--safe-bottom, 0px));
+  z-index: 6;
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 10px;
-  margin-bottom: 4px;
   width: 100%;
+  margin-top: 12px;
+  padding: 8px 4px;
+  background: color-mix(in srgb, var(--paper) 92%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 18px;
 }
 .voice-btn {
   display: inline-flex;
