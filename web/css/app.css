@@ -1234,20 +1234,37 @@ button.set-row:active { background: var(--dawn-soft); }
   width: 100%;
 }
 .voice-btn {
-  min-height: 46px;
-  padding: 10px 16px;
-  font-size: 15px;
-  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 16px;
   white-space: nowrap;
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
   touch-action: manipulation;
 }
+.voice-ico { display: inline-flex; align-items: center; justify-content: center; }
+.voice-ico svg { display: block; }
+
+/* 按住说话：又高又宽，拇指好按 */
 .voice-push {
   flex: 1;
-  font-size: 16px;
-  letter-spacing: 0.5px;
+  height: 68px;
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  background: var(--dawn-soft);
+  border-color: var(--dawn);
+  color: var(--dawn);
+}
+.voice-push:active { background: var(--dawn); color: #fff; }
+
+.voice-long {
+  height: 68px;
+  padding: 0 18px;
+  font-size: 14px;
 }
 .voice-btn.on { border-color: var(--dawn); color: var(--dawn); background: var(--dawn-soft); }
 .voice-btn:disabled { opacity: 0.5; }

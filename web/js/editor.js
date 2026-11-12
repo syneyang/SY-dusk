@@ -321,13 +321,18 @@ export async function renderEditor(root, dateISO) {
 
   // ---------- 语音输入 ----------
   let lastFocusedBlock = null;
+  let lastCaret = null;
   let recorder = null;
   let recording = false;
   let voiceBusy = false;
 
   const voiceHint = el('span', { class: 'voice-hint' });
-  const pushBtn = el('button', { class: 'ghost voice-btn voice-push' }, '🎙 按住说话');
-  const longBtn = el('button', { class: 'ghost voice-btn' }, '⏺ 录音');
+  const pushBtn = el('button', { class: 'ghost voice-btn voice-push' },
+    el('span', { class: 'voice-ico', html: '<svg viewBox="0 0 34 24" width="26" height="19" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M3 12h1.6M8 8.4v7.2M12.4 5v14M16.8 8v8M21.2 3.4v17.2M25.6 7v10M30 10.2v3.6"/></svg>' }),
+    el('span', { class: 'voice-label' }, '按住说话'));
+  const longBtn = el('button', { class: 'ghost voice-btn voice-long' },
+    el('span', { class: 'voice-ico', html: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M9 21h6"/></svg>' }),
+    el('span', { class: 'voice-label' }, '录音转录'));
 
   const voiceRow = el('div', { class: 'voice-row' }, pushBtn, longBtn, voiceHint);
 
@@ -344,11 +349,27 @@ export async function renderEditor(root, dateISO) {
       toast('没听清，再说一次');
       return;
     }
-    const index = lastFocusedBlock == null ? entry.blocks.length - 1 : lastFocusedBlock;
-    const block = { type: 'text', text: clean };
-    entry.blocks.splice(index + 1, 0, block);
-    lastFocusedBlock = index + 1;
-    renderBlocks(index + 1);
+
+    const target = lastFocusedBlock != null ? entry.blocks[lastFocusedBlock] : null;
+
+    // 有正在写的段落 → 插到光标处，不另起一段
+    if (target && target.type === 'text') {
+      const text0 = target.text || '';
+      const position = Math.min(lastCaret == null ? text0.length : lastCaret, text0.length);
+      const needsSpace = position > 0 && !/\s$/.test(text0.slice(0, position));
+      target.text = text0.slice(0, position) + (needsSpace ? ' ' : '') + clean + text0.slice(position);
+      lastCaret = position + clean.length + (needsSpace ? 1 : 0);
+      renderBlocks(lastFocusedBlock);
+      scheduleSave();
+      toast('已插入');
+      return;
+    }
+
+    // 没有在写的段落 → 新起一段，放在最后
+    entry.blocks.push({ type: 'text', text: clean });
+    lastFocusedBlock = entry.blocks.length - 1;
+    lastCaret = clean.length;
+    renderBlocks(lastFocusedBlock);
     scheduleSave();
     toast('已插入');
   }
@@ -416,7 +437,7 @@ export async function renderEditor(root, dateISO) {
         recorder = await startRecording();
         recording = true;
         longBtn.classList.add('on');
-        longBtn.textContent = '⏹ 停止录音';
+        longBtn.querySelector('.voice-label').textContent = '停止录音';
         voiceHint.textContent = '录音中…';
       } catch (error) {
         toast(error.message || '录不了音');
@@ -426,7 +447,7 @@ export async function renderEditor(root, dateISO) {
 
     recording = false;
     longBtn.classList.remove('on');
-    longBtn.textContent = '⏺ 录音';
+    longBtn.querySelector('.voice-label').textContent = '录音转录';
     voiceHint.textContent = '识别中…';
     const device = recorder;
     recorder = null;
@@ -461,7 +482,13 @@ export async function renderEditor(root, dateISO) {
         const ta = el('textarea', { class: 'blk-text', placeholder: '写点什么…' });
         ta.value = block.text || '';
         const grow = () => { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; };
-        ta.addEventListener('focus', () => { lastFocusedBlock = index; });
+        ta.addEventListener('focus', () => { lastFocusedBlock = index; lastCaret = ta.selectionStart; });
+        for (const type of ['input', 'keyup', 'click', 'blur']) {
+          ta.addEventListener(type, () => {
+            lastFocusedBlock = index;
+            try { lastCaret = ta.selectionStart; } catch {}
+          });
+        }
         ta.addEventListener('input', () => { block.text = ta.value; grow(); scheduleSave(); });
         ta.addEventListener('paste', (event) => {
           const raw = event.clipboardData?.getData('text/plain') || '';
