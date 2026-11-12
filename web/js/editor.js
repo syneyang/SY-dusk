@@ -477,16 +477,17 @@ export async function renderEditor(root, dateISO) {
         recorder = await startRecording();
         recording = true;
         longBtn.classList.add('on');
-        longBtn.querySelector('.voice-label').textContent = '停止录音';
-          } catch (error) {
+        startClock(longLabel);
+      } catch (error) {
         toast(error.message || '录不了音');
       }
       return;
     }
 
     recording = false;
+    stopClock();
     longBtn.classList.remove('on');
-    longBtn.querySelector('.voice-label').textContent = '录音转录';
+    if (longLabel) longLabel.textContent = '正在识别…';
     const device = recorder;
     recorder = null;
     try {
