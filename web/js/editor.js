@@ -327,7 +327,7 @@ export async function renderEditor(root, dateISO) {
   let recording = false;
   let voiceBusy = false;
 
-  const voiceHint = el('span', { class: 'voice-hint' });
+  const voiceHint = el('span', { class: 'voice-hint', style: 'display:none' });
   const pushBtn = el('button', { class: 'ghost voice-btn voice-push' },
     el('span', { class: 'voice-ico', html: '<svg viewBox="0 0 34 24" width="26" height="19" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M3 12h1.6M8 8.4v7.2M12.4 5v14M16.8 8v8M21.2 3.4v17.2M25.6 7v10M30 10.2v3.6"/></svg>' }),
     el('span', { class: 'voice-label' }, '按住说话'));
@@ -382,7 +382,7 @@ export async function renderEditor(root, dateISO) {
     longBtn.disabled = true;
     try {
       const text = await transcribe(blob, ({ index, total }) => {
-        voiceHint.textContent = total > 1 ? `识别中 ${index + 1}/${total}…` : '识别中…';
+        if (total > 1 && pushLabel) pushLabel.textContent = `识别中 ${index + 1}/${total}…`;
       });
       insertSpeech(text);
     } catch (error) {
@@ -391,8 +391,7 @@ export async function renderEditor(root, dateISO) {
       voiceBusy = false;
       pushBtn.disabled = false;
       longBtn.disabled = false;
-      voiceHint.textContent = '';
-      if (pushLabel) pushLabel.textContent = '按住说话';
+        if (pushLabel) pushLabel.textContent = '按住说话';
     }
   }
 
@@ -423,15 +422,13 @@ export async function renderEditor(root, dateISO) {
     recording = false;
     pushBtn.classList.remove('on');
     if (pushLabel) pushLabel.textContent = '识别中…';
-    voiceHint.textContent = '';
     const device = recorder;
     recorder = null;
     try {
       const blob = await device.stop();
       await runTranscribe(blob);
     } catch (error) {
-      voiceHint.textContent = '';
-      toast(error.message || '录音失败');
+        toast(error.message || '录音失败');
     }
   };
 
@@ -450,8 +447,7 @@ export async function renderEditor(root, dateISO) {
         recording = true;
         longBtn.classList.add('on');
         longBtn.querySelector('.voice-label').textContent = '停止录音';
-        voiceHint.textContent = '录音中…';
-      } catch (error) {
+          } catch (error) {
         toast(error.message || '录不了音');
       }
       return;
@@ -460,15 +456,13 @@ export async function renderEditor(root, dateISO) {
     recording = false;
     longBtn.classList.remove('on');
     longBtn.querySelector('.voice-label').textContent = '录音转录';
-    voiceHint.textContent = '识别中…';
     const device = recorder;
     recorder = null;
     try {
       const blob = await device.stop();
       await runTranscribe(blob);
     } catch (error) {
-      voiceHint.textContent = '';
-      toast(error.message || '录音失败');
+        toast(error.message || '录音失败');
     }
   });
 

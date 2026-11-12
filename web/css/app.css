@@ -1225,23 +1225,23 @@ button.set-row:active { background: var(--dawn-soft); }
 
 /* ---------- 语音输入 ---------- */
 
-.view-editor { padding-bottom: 108px; }
+.view-editor { padding-bottom: 160px; }
 
 .voice-row {
   position: fixed;
-  left: 14px;
-  right: 14px;
-  bottom: calc(66px + var(--safe-bottom, 0px));
+  left: 0;
+  right: 0;
+  bottom: calc(56px + var(--safe-bottom, 0px));
   z-index: 7;
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
-  margin-top: 12px;
-  padding: 8px 4px;
+  margin: 0;
+  padding: 10px 14px 12px;
   background: var(--paper);
-  border-radius: 18px;
-  box-shadow: 0 -6px 20px rgba(43, 38, 32, 0.08);
+  border-top: 1px solid var(--hairline);
+  border-radius: 0;
 }
 .voice-btn {
   display: inline-flex;
